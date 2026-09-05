@@ -57,6 +57,7 @@ details.refs li{font-size:12px;color:var(--sub);margin:4px 0;}
 #gate button{width:100%;margin-top:12px;padding:11px;border:none;border-radius:8px;background:var(--accent);color:var(--accent-ink);font:inherit;font-size:14px;font-weight:700;cursor:pointer;}
 #gateErr{color:var(--hi);font-size:12.5px;margin-top:10px;min-height:16px;}
 .actrow{display:flex;gap:8px;margin-top:12px;padding-top:10px;border-top:1px dashed var(--line);}
+.actrow[hidden]{display:none;}
 .actrow button{padding:8px 14px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font:inherit;font-size:12.5px;cursor:pointer;}
 .actrow button:hover{background:var(--accent-soft);}
 details.hist{margin-top:14px;border-top:1px dashed var(--line);padding-top:10px;}
@@ -116,10 +117,13 @@ details.hist ul{padding-left:4px;}
   </div>
   <footer class="note">내부 참고용 사전 점검 도구입니다. 판정은 AI 추정이며 법적 효력이 없습니다. 최종 표시사항은 규정 원문과 담당자 검토로 확정하세요.</footer>
 </div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script type="module">
+import * as pdfjsLib from "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.min.mjs";
+window.pdfjsLib = pdfjsLib;
+pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.worker.min.mjs";
+</script>
 <script>
 (function(){
-  if (window.pdfjsLib){ try{ pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"; }catch(e){} }
   var EXAMPLE="제품명: 맑은아침 도라지배차\n식품유형: 액상차\n원재료명: 배농축액, 도라지추출액, 대추, 생강\n내용량: 1,000ml\n광고 문구: 기침·가래에 특효! 감기 예방에 좋은 차. 마시면 면역력이 쑥쑥. 100% 국내산. 무설탕, 무방부제.";
   var txt=document.getElementById('txt'),out=document.getElementById('out'),go=document.getElementById('go');
   var errBox=document.getElementById('errBox'),exTag=document.getElementById('exTag');
@@ -130,11 +134,11 @@ details.hist ul{padding-left:4px;}
   var ptype='일반식품', images=[], pdfText='', accessCode='', lastResult='';
 
   function loadHist(){ try{return JSON.parse(localStorage.getItem('lc.hist')||'[]');}catch(e){return [];} }
-  function saveHist(result){
+  function saveHist(result,reqText,reqPtype){
     try{
       var h=loadHist();
-      var name=(txt.value.match(/제품명\s*[:：]\s*([^\n]{1,30})/)||[])[1]||txt.value.slice(0,25);
-      h.unshift({d:new Date().toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}),n:name.trim(),p:ptype,input:txt.value.slice(0,4000),r:result});
+      var name=(reqText.match(/제품명\s*[:：]\s*([^\n]{1,30})/)||[])[1]||reqText.slice(0,25);
+      h.unshift({d:new Date().toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}),n:name.trim(),p:reqPtype,input:reqText.slice(0,4000),r:result});
       if(h.length>10)h=h.slice(0,10);
       localStorage.setItem('lc.hist',JSON.stringify(h));
       renderHist();
@@ -149,6 +153,10 @@ details.hist ul{padding-left:4px;}
       li.textContent=item.d+' · ['+item.p+'] '+item.n;
       li.onclick=function(){
         txt.value=item.input;exTag.hidden=true;
+        var map={'일반식품':tG,'건강기능식품':tH,'수출(미국)':tU,'수출(일본)':tJ};
+        if(map[item.p])setType(item.p,map[item.p]);
+        images=[];pdfText='';thumbs.innerHTML='';fileIn.value='';pdfInfo.hidden=true;
+        document.getElementById('prescan').hidden=true;refs.hidden=true;refList.innerHTML='';errBox.hidden=true;
         out.innerHTML=render(item.r);lastResult=item.r;
         document.getElementById('actrow').hidden=false;
         try{localStorage.setItem('lc.txt',item.input);}catch(e){}
@@ -165,7 +173,10 @@ details.hist ul{padding-left:4px;}
     ptype=t;
     [tG,tH,tU,tJ].forEach(function(b){b.classList.remove('on');});
     btn.classList.add('on');
-    exportHint.hidden=(t.indexOf('수출')!==0);
+    var isExport=(t.indexOf('수출')===0);
+    exportHint.hidden=!isExport;
+    var cb=document.getElementById('compose');
+    if(isExport){cb.checked=false;cb.disabled=true;}else{cb.disabled=false;}
   }
   tG.onclick=function(){setType('일반식품',tG);};
   tH.onclick=function(){setType('건강기능식품',tH);};
@@ -214,10 +225,11 @@ details.hist ul{padding-left:4px;}
   function inline(s){s=s.replace(/\*\*(.+?)\*\*/g,'<b>$1</b>');s=s.replace(/\[(높음)\]/g,'<span class="badge b-hi">높음</span>');s=s.replace(/\[(중간)\]/g,'<span class="badge b-mid">중간</span>');s=s.replace(/\[(낮음)\]/g,'<span class="badge b-low">낮음</span>');return s;}
   function render(md){
     var lines=esc(md).split('\n'),html='',inList=false;
-    for(var i=0;i<lines.length;i++){var L=lines[i],isLi=/^\s*[-*]\s+/.test(L);
+    for(var i=0;i<lines.length;i++){var L=lines[i],isLi=/^\s*[-*]\s+/.test(L)||/^\s*\d+[.)]\s+/.test(L);
       if(inList&&!isLi){html+='</ul>';inList=false;}
-      if(/^###?\s+/.test(L)){html+='<h2>'+L.replace(/^###?\s+/,'')+'</h2>';continue;}
-      if(isLi){if(!inList){html+='<ul>';inList=true;}html+='<li>'+inline(L.replace(/^\s*[-*]\s+/,''))+'</li>';continue;}
+      if(/^-{3,}\s*$/.test(L.trim())){continue;}
+      if(/^#{1,3}\s+/.test(L)){html+='<h2>'+L.replace(/^#{1,3}\s+/,'')+'</h2>';continue;}
+      if(isLi){if(!inList){html+='<ul>';inList=true;}html+='<li>'+inline(L.replace(/^\s*(?:[-*]|\d+[.)])\s+/,''))+'</li>';continue;}
       if(L.trim()===''){continue;}
       html+='<p>'+inline(L)+'</p>';}
     if(inList)html+='</ul>';
@@ -239,7 +251,7 @@ details.hist ul{padding-left:4px;}
     if(!window.pdfjsLib){pdfInfo.hidden=false;pdfInfo.textContent='PDF 처리를 위해 인터넷 연결이 필요합니다.';return;}
     try{
       var buf=await f.arrayBuffer();
-      var doc=await pdfjsLib.getDocument({data:buf}).promise;
+      var doc=await pdfjsLib.getDocument({data:buf,isEvalSupported:false}).promise;
       var maxP=Math.min(doc.numPages,6),texts=[];
       for(var p=1;p<=maxP;p++){
         var page=await doc.getPage(p);
@@ -252,7 +264,7 @@ details.hist ul{padding-left:4px;}
       var joined=texts.join('\n').replace(/\s{2,}/g,' ').trim();
       if(joined.length>30)pdfText+='\n[PDF 추출 텍스트: '+f.name+']\n'+joined.slice(0,3000);
       pdfInfo.hidden=false;
-      pdfInfo.textContent='PDF '+f.name+' — '+maxP+'페이지 변환'+(joined.length>30?' + 텍스트 추출':' (스캔본)')+(doc.numPages>4?' (최대 4쪽)':'');
+      pdfInfo.textContent='PDF '+f.name+' — '+maxP+'페이지 변환'+(joined.length>30?' + 텍스트 추출':' (스캔본)')+(doc.numPages>6?' ⚠ 앞 6쪽만 처리됨':'');
     }catch(e){pdfInfo.hidden=false;pdfInfo.textContent='PDF 변환 실패: '+f.name;}
   }
   fileIn.addEventListener('change',async function(){
@@ -268,7 +280,11 @@ details.hist ul{padding-left:4px;}
         });
       }
     }
-    if(images.length>8){images=images.slice(0,8);}
+    if(images.length>8){
+      pdfInfo.hidden=false;
+      pdfInfo.textContent=(pdfInfo.textContent?pdfInfo.textContent+' · ':'')+'⚠ 이미지 '+images.length+'장 중 앞 8장만 전송됩니다';
+      images=images.slice(0,8);
+    }
   });
 
   var RULES=[
@@ -287,9 +303,15 @@ details.hist ul{padding-left:4px;}
     [/숙취\s*해소/,'중간','실증자료 갖춘 경우만 제한적 허용'],
     [/부작용\s*(없|제로)/,'높음','절대적 안전성 보장 표현']
   ];
-  function prescan(text){
+  function prescan(text,warns){
     var box=document.getElementById('prescan'),list=document.getElementById('prescanList');
     list.innerHTML='';var hits=0;
+    (warns||[]).forEach(function(wmsg){var li=document.createElement('li');li.style.cssText='font-size:12.5px;margin:3px 0;color:var(--mid);';li.textContent='⚠ '+wmsg;list.appendChild(li);});
+    if(ptype.indexOf('수출')===0){
+      var li=document.createElement('li');li.style.cssText='font-size:12.5px;color:var(--sub);';
+      li.textContent='즉시 감지 규칙은 한국 규정 기준이라 수출 검수에는 적용하지 않습니다.';
+      list.appendChild(li);box.hidden=false;return;
+    }
     RULES.forEach(function(r){
       var m=text.match(r[0]);
       if(m){hits++;var li=document.createElement('li');li.style.cssText='font-size:12.5px;margin:3px 0;';
@@ -300,18 +322,26 @@ details.hist ul{padding-left:4px;}
   }
 
   go.onclick=async function(){
-    if(!txt.value.trim()){txt.focus();return;}
+    if(!txt.value.trim() && !pdfText && images.length===0){
+      errBox.textContent='문구를 입력하거나 이미지·PDF를 첨부해주세요.';errBox.hidden=false;txt.focus();return;
+    }
+    var reqText=txt.value, reqPtype=ptype;
+    lastResult='';document.getElementById('actrow').hidden=true;
     errBox.hidden=true;refs.hidden=true;refList.innerHTML='';
-    prescan(txt.value+'\n'+pdfText);
+    var warns=[];
+    if(reqText.length>5000)warns.push('입력 '+reqText.length.toLocaleString()+'자 중 앞 5,000자만 검수됩니다 — 나눠서 검수하세요.');
+    if(pdfText.length>3000)warns.push('PDF 추출 텍스트는 앞 3,000자만 전달됩니다.');
+    prescan(reqText+'\n'+pdfText,warns);
     go.disabled=true;
     out.innerHTML='<p class="thinking">규정 조문과 대조해 검수하는 중입니다… (10~40초)</p>';
     try{
-      var r=null, payload=JSON.stringify({ptype:ptype,text:txt.value,pdftext:pdfText,images:images,precise:document.getElementById('precise').checked,suggest:document.getElementById('suggest').checked,compose:document.getElementById('compose').checked});
+      var r=null, errData=null, payload=JSON.stringify({ptype:reqPtype,text:reqText,pdftext:pdfText,images:images,precise:document.getElementById('precise').checked,suggest:document.getElementById('suggest').checked,compose:document.getElementById('compose').checked});
       for(var attempt=1;attempt<=12;attempt++){
         r=await fetch('/api/check',{method:'POST',headers:hdrs({'Content-Type':'application/json'}),body:payload});
-        if(r.status===503||r.status===502){
-          var rd={}; try{rd=await r.json();}catch(e){}
-          if(rd.error==='region_retry'||(rd.message&&rd.message.indexOf('(403')>=0)){
+        errData=null;
+        if(!r.ok){
+          try{errData=await r.json();}catch(e){}
+          if((r.status===503||r.status===502)&&errData&&(errData.error==='region_retry'||(errData.message&&errData.message.indexOf('(403')>=0))){
             out.innerHTML='<p class="thinking">해외 경유지 우회 재시도 중… ('+attempt+'/12)</p>';
             await new Promise(function(res){setTimeout(res,500+attempt*200);});
             continue;
@@ -320,14 +350,13 @@ details.hist ul{padding-left:4px;}
         break;
       }
       if(!r.ok || !r.body){
-        var d={}; try{d=await r.json();}catch(e){}
         out.innerHTML='<p class="placeholder">검수를 완료하지 못했습니다.</p>';
-        errBox.textContent=(d.error==='region_retry')?'해외 경유지 문제가 계속됩니다. 잠시 후 다시 눌러주세요.':(d.message||('오류가 발생했습니다 ('+r.status+').'));errBox.hidden=false;
+        errBox.textContent=(errData&&errData.error==='region_retry')?'해외 경유지 문제가 계속됩니다. 잠시 후 다시 눌러주세요.':((errData&&errData.message)||('오류가 발생했습니다 ('+r.status+').'));errBox.hidden=false;
         if(r.status===401){gate.style.display='flex';}
         return;
       }
       // 첫 줄 META(참조 조문) + 이어지는 SSE 스트림 파싱
-      var reader=r.body.getReader(),dec=new TextDecoder(),buf='',acc='',metaDone=false;
+      var reader=r.body.getReader(),dec=new TextDecoder(),buf='',acc='',metaDone=false,stopReason=null,streamErr=false;
       while(true){
         var chunk=await reader.read();
         if(chunk.done)break;
@@ -339,7 +368,8 @@ details.hist ul{padding-left:4px;}
           try{
             var meta=JSON.parse(metaLine.replace(/^META:/,''));
             (meta.refs||[]).forEach(function(c){var li=document.createElement('li');
-              li.innerHTML='<span class="srcbadge'+(c.kind==='요약'?' sum':'')+'">'+(c.kind==='요약'?'요약':'원문')+'</span>'+esc(c.title);refList.appendChild(li);});
+              var isSum=((c.kind||'').indexOf('요약')>=0);
+              li.innerHTML='<span class="srcbadge'+(isSum?' sum':'')+'">'+esc(c.kind||'원문')+'</span>'+esc(c.title);refList.appendChild(li);});
             if(meta.refs&&meta.refs.length)refs.hidden=false;
           }catch(e){}
         }
@@ -352,15 +382,21 @@ details.hist ul{padding-left:4px;}
             if(ev.type==='content_block_delta'&&ev.delta&&ev.delta.type==='text_delta'){
               acc+=ev.delta.text;out.innerHTML=render(acc);
             }
-            if(ev.type==='error'){errBox.textContent='AI 오류: '+(ev.error&&ev.error.message||'');errBox.hidden=false;}
+            if(ev.type==='message_delta'&&ev.delta&&ev.delta.stop_reason){stopReason=ev.delta.stop_reason;}
+            if(ev.type==='error'){streamErr=true;errBox.textContent='AI 오류: '+(ev.error&&ev.error.message||'');errBox.hidden=false;}
           }catch(e){}
         }
       }
       if(acc){
         out.innerHTML=render(acc);
-        lastResult=acc;
-        document.getElementById('actrow').hidden=false;
-        saveHist(acc);
+        var complete=(stopReason==='end_turn'||stopReason==='stop_sequence')&&!streamErr;
+        if(complete){
+          lastResult=acc;
+          document.getElementById('actrow').hidden=false;
+          saveHist(acc,reqText,reqPtype);
+        }else{
+          out.innerHTML+='<p class="err">⚠ '+(stopReason==='max_tokens'?'응답이 길이 제한으로 잘렸습니다 — 문구를 나눠서 다시 검수하세요.':'응답이 중간에 중단되었습니다 — 다시 시도해주세요.')+' (미완료 결과는 이력에 저장되지 않습니다)</p>';
+        }
       }
       else{out.innerHTML='<p class="placeholder">응답을 받지 못했습니다. 다시 시도해주세요.</p>';}
     }catch(e){
