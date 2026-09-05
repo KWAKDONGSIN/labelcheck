@@ -180,6 +180,44 @@ export default {
       });
     }
 
+    // 공유 검수 이력 (Cloudflare KV) - 접속 코드 인증자 전원이 공유
+    if (url.pathname === "/api/hist" && request.method === "GET") {
+      if (!authorized(request, env)) return json({ error: "auth" }, 401);
+      const list = await env.HIST.list({ prefix: "h:", limit: 30 });
+      const items = [];
+      for (const k of list.keys) {
+        const m = k.metadata || {};
+        items.push({ id: k.name, d: m.d || "", n: m.n || "", p: m.p || "" });
+      }
+      return json({ items });
+    }
+    if (url.pathname === "/api/hist" && request.method === "POST") {
+      if (!authorized(request, env)) return json({ error: "auth" }, 401);
+      let body;
+      try { body = await request.json(); } catch (e) { return json({ error: "bad_request" }, 400); }
+      const now = new Date();
+      const d = now.toLocaleString("ko-KR", { timeZone: "Asia/Seoul", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
+      // 키를 역순 타임스탬프로 만들어 목록이 최신순이 되게 한다
+      const id = "h:" + String(1e13 - Date.now()).padStart(13, "0") + Math.random().toString(36).slice(2, 6);
+      const rec = { d, n: String(body.n || "").slice(0, 40), p: String(body.p || "").slice(0, 20), input: String(body.input || "").slice(0, 8000), r: String(body.r || "").slice(0, 30000) };
+      await env.HIST.put(id, JSON.stringify(rec), { metadata: { d: rec.d, n: rec.n, p: rec.p } });
+      // 100건 초과분 정리
+      const list = await env.HIST.list({ prefix: "h:", limit: 200 });
+      for (let i = 100; i < list.keys.length; i++) await env.HIST.delete(list.keys[i].name);
+      return json({ ok: true, id });
+    }
+    if (url.pathname.startsWith("/api/hist/") && request.method === "GET") {
+      if (!authorized(request, env)) return json({ error: "auth" }, 401);
+      const rec = await env.HIST.get(url.pathname.slice("/api/hist/".length));
+      if (!rec) return json({ error: "not_found" }, 404);
+      return new Response(rec, { headers: { "Content-Type": "application/json; charset=utf-8" } });
+    }
+    if (url.pathname.startsWith("/api/hist/") && request.method === "DELETE") {
+      if (!authorized(request, env)) return json({ error: "auth" }, 401);
+      await env.HIST.delete(url.pathname.slice("/api/hist/".length));
+      return json({ ok: true });
+    }
+
     if (request.method === "POST" && url.pathname === "/api/check") {
       if (!authorized(request, env)) return json({ error: "auth", message: "접속 코드가 올바르지 않습니다." }, 401);
       if (!env.ANTHROPIC_API_KEY) return json({ error: "no_key", message: "서버에 API 키가 설정되지 않았습니다." }, 500);

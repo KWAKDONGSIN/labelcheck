@@ -2,6 +2,10 @@ name = "labelcheck"
 main = "worker.js"
 compatibility_date = "2026-09-01"
 
+[[kv_namespaces]]
+binding = "HIST"
+id = "9e2c7d191e1b4ce3a3b6adbe103c9c1b"
+
 [[rules]]
 type = "Text"
 globs = ["**/*.html"]
