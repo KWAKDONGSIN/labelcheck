@@ -109,6 +109,8 @@ details.hist ul{padding-left:4px;}
       <label class="chk"><input type="checkbox" id="suggest" checked> 수정 문안 추천 (위반 문구를 규정에 맞게 고친 대체 문안 제시)</label>
       <label class="chk"><input type="checkbox" id="precise"> 정밀 검수 (더 꼼꼼하지만 비용 약 2~5배)</label>
       <button class="go" id="go" type="button">검수하기</button>
+      <button class="go" id="goXls" type="button" style="margin-top:8px;background:var(--card);color:var(--accent);border:2px solid var(--accent);">📊 표기사항 엑셀 만들기</button>
+      <div class="hint">엑셀 만들기: 품목제조보고서·영양성적서를 첨부(또는 붙여넣기)하면 컬러박스용 한글표기사항 엑셀 파일을 만들어 내려줍니다.</div>
       <div id="errBox" hidden class="err"></div>
       <details class="hist" id="hist"><summary>최근 검수 이력 (팀 공유 · 최근 30건)</summary><ul id="histList"></ul></details>
     </section>
@@ -130,7 +132,7 @@ import * as pdfjsLib from "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/
 window.pdfjsLib = pdfjsLib;
 pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.worker.min.mjs";
 </script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <script>
 (function(){
   var EXAMPLE="제품명: 맑은아침 도라지배차\n식품유형: 액상차\n원재료명: 배농축액, 도라지추출액, 대추, 생강\n내용량: 1,000ml\n광고 문구: 기침·가래에 특효! 감기 예방에 좋은 차. 마시면 면역력이 쑥쑥. 100% 국내산. 무설탕, 무방부제.";
@@ -140,7 +142,81 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs
   var fileIn=document.getElementById('fileIn'),thumbs=document.getElementById('thumbs'),pdfInfo=document.getElementById('pdfInfo');
   var kbline=document.getElementById('kbline'),refs=document.getElementById('refs'),refList=document.getElementById('refList');
   var gate=document.getElementById('gate'),codeIn=document.getElementById('codeIn'),gateErr=document.getElementById('gateErr');
-  var ptype='일반식품', images=[], pdfText='', accessCode='', lastResult='', lastExcel=null;
+  var ptype='일반식품', images=[], pdfText='', accessCode='', lastResult='', lastExcel=null, checkMode='normal';
+
+  // === 예시 서식(컬러박스 한글표기사항) 그대로 엑셀 생성 ===
+  var XB={style:'thin',color:{rgb:'999999'}};
+  function xst(o){o=o||{};var s={alignment:{vertical:'center',wrapText:true},border:{top:XB,bottom:XB,left:XB,right:XB}};
+    s.font={sz:o.sz||10,bold:!!o.b};
+    if(o.f)s.fill={fgColor:{rgb:o.f}};
+    if(o.c)s.alignment.horizontal='center';
+    if(o.nb)delete s.border;
+    return s;}
+  function xc(v,o){return {v:(v==null?'':String(v)),t:'s',s:xst(o)};}
+  function buildLabelSheet(rows){
+    var g=function(name){return rows.filter(function(r){return r[0]===name;});};
+    var main=g('주표시면'), care=g('주의사항'), store=g('보관방법');
+    var info=rows.filter(function(r){return r[0]==='정보표시면'||r[0]==='영양정보';});
+    var find=function(list,kw){var r=list.filter(function(x){return (x[1]||'').indexOf(kw)>=0;})[0];return r?r[2]:'';};
+    var pn=function(r){return r&&r[3]?' ('+r[3].replace(/\s*굵게/,'')+')':'';};
+    var A=[],M=[],hts={};
+    var HEAD='D9EAD3', SEC='EFEFEF';
+    A.push([xc('',{nb:1}),xc('컬러박스 표시사항',{b:1,sz:14,nb:1})]);
+    A.push([xc('',{nb:1}),xc('주요 표시사항',{b:1,sz:11,nb:1})]);
+    var r0=A.length;
+    var mName=main.filter(function(x){return x[1].indexOf('제품명')>=0;})[0];
+    var mType=main.filter(function(x){return x[1].indexOf('유형')>=0;})[0];
+    var mAmt=main.filter(function(x){return x[1].indexOf('내용량')>=0;})[0];
+    var mIng=main.filter(function(x){return x[1].indexOf('원료')>=0;})[0];
+    A.push([xc('',{nb:1}),xc('주표시면',{b:1,c:1,f:HEAD}),xc('제품명'+pn(mName),{b:1,f:SEC}),xc(mName?mName[2]:'',{b:1,sz:12}),xc(''),xc('식품의 유형',{b:1,f:SEC}),xc(mType?mType[2]:'')]);
+    A.push([xc('',{nb:1}),null,xc('내용량'+pn(mAmt),{f:SEC}),xc(mAmt?mAmt[2]:''),xc(''),xc(''),xc('')]);
+    A.push([xc('',{nb:1}),null,xc('주원료 및 함량'+pn(mIng),{f:SEC}),xc(mIng?mIng[2]:''),xc(''),xc(''),xc('')]);
+    M.push({s:{r:r0,c:1},e:{r:r0+2,c:1}});
+    M.push({s:{r:r0,c:3},e:{r:r0,c:4}});
+    M.push({s:{r:r0+1,c:3},e:{r:r0+1,c:6}});
+    M.push({s:{r:r0+2,c:3},e:{r:r0+2,c:6}});
+    var ri=A.length;
+    var careTxt='■ 주의사항 :\n'+care.map(function(x){return x[1]+' '+x[2];}).join('\n');
+    var storeTxt='■ 보관 방법 :\n'+store.map(function(x){return x[1]+' '+x[2];}).join('\n');
+    var half=Math.max(2,Math.ceil(info.length/2));
+    info.forEach(function(row,k){
+      var line=[xc('',{nb:1}),null,xc(row[1],{f:SEC}),xc(row[2],{b:/굵게/.test(row[3]||'')}),xc(''),xc(''),xc(''),xc(row[3]?'('+row[3].replace(/\s*굵게/,'')+')':'',{sz:9,c:1})];
+      if(k===0&&care.length)line[8]=xc(careTxt,{sz:9});
+      else if(k===half&&store.length)line[8]=xc(storeTxt,{sz:9});
+      else line[8]=xc('');
+      A.push(line);
+      M.push({s:{r:ri+k,c:3},e:{r:ri+k,c:6}});
+      if((row[2]||'').length>60)hts[ri+k]=Math.min(120,15*Math.ceil(row[2].length/50));
+    });
+    M.push({s:{r:ri,c:1},e:{r:ri+info.length-1,c:1}});
+    A[ri][1]=xc('정보표시면',{b:1,c:1,f:HEAD});
+    if(care.length){M.push({s:{r:ri,c:8},e:{r:ri+half-1,c:9}});hts[ri]=Math.max(hts[ri]||0,16*(care.length+1));}
+    if(store.length&&info.length>half){M.push({s:{r:ri+half,c:8},e:{r:ri+info.length-1,c:9}});}
+    var other=rows.filter(function(r){return ['주표시면','정보표시면','영양정보','주의사항','보관방법','구분'].indexOf(r[0])<0;});
+    other.forEach(function(row){A.push([xc('',{nb:1}),xc(row[0],{f:SEC}),xc(row[1],{f:SEC}),xc(row[2]),xc(''),xc(''),xc(''),xc(row[3]||'',{sz:9})]);M.push({s:{r:A.length-1,c:3},e:{r:A.length-1,c:6}});});
+    var ws=XLSX.utils.aoa_to_sheet([[]]);
+    A.forEach(function(row,r){row.forEach(function(cell,c){if(cell)ws[XLSX.utils.encode_cell({r:r,c:c})]=cell;});});
+    ws['!ref']='A1:'+XLSX.utils.encode_cell({r:A.length-1,c:9});
+    ws['!merges']=M;
+    ws['!cols']=[{wch:2},{wch:11},{wch:19},{wch:16},{wch:10},{wch:12},{wch:12},{wch:8},{wch:46},{wch:5}];
+    var rowsArr=[];for(var rr=0;rr<A.length;rr++){rowsArr.push(hts[rr]?{hpt:hts[rr]}:{});}
+    ws['!rows']=rowsArr;
+    return ws;
+  }
+  function buildRatioSheet(rows){
+    var ws=XLSX.utils.aoa_to_sheet([[]]);
+    var sum=0;
+    rows.forEach(function(row,r){
+      row.forEach(function(v,c){ws[XLSX.utils.encode_cell({r:r,c:c})]=xc(v,r===0?{b:1,f:'D9EAD3',c:1}:{});});
+      if(r>0){var f=parseFloat(String(row[2]||'').replace('%',''));if(!isNaN(f))sum+=f;}
+    });
+    var last=rows.length;
+    ws[XLSX.utils.encode_cell({r:last,c:1})]=xc('합계',{b:1});
+    ws[XLSX.utils.encode_cell({r:last,c:2})]=xc(sum.toFixed(2),{b:1});
+    ws['!ref']='A1:'+XLSX.utils.encode_cell({r:last,c:Math.max(2,(rows[0]||[]).length-1)});
+    ws['!cols']=[{wch:6},{wch:34},{wch:12}];
+    return ws;
+  }
 
   function parseExcel(md){
     var sheets=[], re=/\[EXCEL:([^\]\n]+)\]([\s\S]*?)(?=\[EXCEL:|\[\/EXCEL\]|$)/g, m;
@@ -263,14 +339,20 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs
     var wb=XLSX.utils.book_new();
     var pname='표기사항';
     lastExcel.forEach(function(sh){
-      var ws=XLSX.utils.aoa_to_sheet(sh.rows);
-      ws['!cols']=sh.rows[0].map(function(h,i){
-        var w=10;
-        sh.rows.forEach(function(r){var len=(r[i]||'').length;if(len>w)w=len;});
-        return {wch:Math.min(w+4,70)};
-      });
-      XLSX.utils.book_append_sheet(wb,ws,sh.name.replace(/[\\\/\?\*\[\]:]/g,' '));
-      sh.rows.forEach(function(r){if(r[1]==='제품명'&&r[2])pname=r[2].slice(0,20);});
+      var ws;
+      var dataRows=sh.rows.slice(1);
+      if(sh.name.indexOf('표기')>=0&&sh.rows[0][0]==='구분'){
+        ws=buildLabelSheet(dataRows);
+        dataRows.forEach(function(r){if(r[1]==='제품명'&&r[2]&&r[2].indexOf('[')<0)pname=r[2].slice(0,20);});
+        XLSX.utils.book_append_sheet(wb,ws,'한글표기사항');
+      }else if(sh.name.indexOf('배합')>=0){
+        ws=buildRatioSheet(sh.rows);
+        XLSX.utils.book_append_sheet(wb,ws,'배합비율');
+      }else{
+        ws=XLSX.utils.aoa_to_sheet(sh.rows);
+        ws['!cols']=sh.rows[0].map(function(h,i){var w=10;sh.rows.forEach(function(r){var len=(r[i]||'').length;if(len>w)w=len;});return {wch:Math.min(w+4,70)};});
+        XLSX.utils.book_append_sheet(wb,ws,sh.name.replace(/[\\\/\?\*\[\]:]/g,' '));
+      }
     });
     var d=new Date(),ymd=String(d.getFullYear()).slice(2)+String(d.getMonth()+1).padStart(2,'0')+String(d.getDate()).padStart(2,'0');
     XLSX.writeFile(wb,pname+'_한글표기사항_'+ymd+'.xlsx');
@@ -445,17 +527,18 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs
     if(!txt.value.trim() && !pdfText && images.length===0){
       errBox.textContent='문구를 입력하거나 이미지·PDF를 첨부해주세요.';errBox.hidden=false;txt.focus();return;
     }
-    var reqText=txt.value, reqPtype=ptype;
+    var reqText=txt.value, reqPtype=ptype, reqMode=checkMode;
+    checkMode='normal';
     lastResult='';document.getElementById('actrow').hidden=true;
     errBox.hidden=true;refs.hidden=true;refList.innerHTML='';
     var warns=[];
     if(reqText.length>5000)warns.push('입력 '+reqText.length.toLocaleString()+'자 중 앞 5,000자만 검수됩니다 — 나눠서 검수하세요.');
     if(pdfText.length>3000)warns.push('PDF 추출 텍스트는 앞 3,000자만 전달됩니다.');
-    prescan(reqText+'\n'+pdfText,warns);
-    go.disabled=true;
-    out.innerHTML='<p class="thinking">규정 조문과 대조해 검수하는 중입니다… (10~40초)</p>';
+    if(reqMode!=='excel')prescan(reqText+'\n'+pdfText,warns);
+    go.disabled=true;document.getElementById('goXls').disabled=true;
+    out.innerHTML='<p class="thinking">'+(reqMode==='excel'?'자료에서 표기사항을 추출해 엑셀을 만드는 중입니다… (20~60초)':'규정 조문과 대조해 검수하는 중입니다… (10~40초)')+'</p>';
     try{
-      var r=null, errData=null, payload=JSON.stringify({ptype:reqPtype,text:reqText,pdftext:pdfText,images:images,precise:document.getElementById('precise').checked,suggest:document.getElementById('suggest').checked,compose:document.getElementById('compose').checked});
+      var r=null, errData=null, payload=JSON.stringify({ptype:reqPtype,text:reqText,pdftext:pdfText,images:images,mode:(reqMode==='excel'?'excel':undefined),precise:document.getElementById('precise').checked,suggest:document.getElementById('suggest').checked,compose:reqMode!=='excel'&&document.getElementById('compose').checked});
       for(var attempt=1;attempt<=12;attempt++){
         r=await fetch('/api/check',{method:'POST',headers:hdrs({'Content-Type':'application/json'}),body:payload});
         errData=null;
@@ -513,6 +596,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs
         if(complete){
           applyResult(acc);
           saveHist(acc,reqText,reqPtype);
+          if(reqMode==='excel'&&lastExcel){document.getElementById('xlsBtn').onclick();}
         }else{
           out.innerHTML+='<p class="err">⚠ '+(stopReason==='max_tokens'?'응답이 길이 제한으로 잘렸습니다 — 문구를 나눠서 다시 검수하세요.':'응답이 중간에 중단되었습니다 — 다시 시도해주세요.')+' (미완료 결과는 이력에 저장되지 않습니다)</p>';
         }
@@ -521,8 +605,9 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs
     }catch(e){
       out.innerHTML='<p class="placeholder">검수를 완료하지 못했습니다.</p>';
       errBox.textContent='연결 오류 — 인터넷 연결을 확인하세요.';errBox.hidden=false;
-    }finally{go.disabled=false;}
+    }finally{go.disabled=false;document.getElementById('goXls').disabled=false;}
   };
+  document.getElementById('goXls').onclick=function(){checkMode='excel';go.onclick();};
 })();
 </script>
 </body>
