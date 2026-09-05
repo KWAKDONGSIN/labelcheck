@@ -97,8 +97,11 @@ details.hist ul{padding-left:4px;}
       <div class="seg"><button id="tG" class="on" type="button">일반식품</button><button id="tH" type="button">건강기능식품</button></div>
       <div class="seg" style="margin-top:8px;"><button id="tU" type="button">수출 · 미국 FDA</button><button id="tJ" type="button">수출 · 일본</button></div>
       <div class="hint" id="exportHint" hidden>수출 검수는 핵심 요약 자료 기반의 참고용 사전 점검입니다. 최종 라벨은 현지 수입자·전문가 검토로 확정하세요.</div>
-      <span class="lbl">패키지·상세페이지 문구 <span class="exlabel" id="exTag">예시</span></span>
+      <span class="lbl">패키지·상세페이지 문구 <span class="exlabel" id="exTag">예시</span>
+        <button id="draftSave" type="button" style="float:right;padding:3px 10px;border:1px solid var(--accent);border-radius:6px;background:var(--accent-soft);color:var(--accent);font:inherit;font-size:11.5px;cursor:pointer;font-weight:700;">💾 문안 공유 저장</button>
+      </span>
       <textarea id="txt" spellcheck="false"></textarea>
+      <div class="hint" id="draftNote" hidden></div>
       <div class="hint">제품명, 원재료명, 광고 문구를 그대로 붙여넣으세요. 일부만 넣어도 됩니다.</div>
       <span class="lbl">패키지 이미지 · PDF · AI 파일 (선택)</span>
       <input type="file" id="fileIn" multiple accept="image/*,.pdf,application/pdf,.ai">
@@ -112,7 +115,11 @@ details.hist ul{padding-left:4px;}
       <button class="go" id="goXls" type="button" style="margin-top:8px;background:var(--card);color:var(--accent);border:2px solid var(--accent);">📊 표기사항 엑셀 만들기</button>
       <div class="hint">엑셀 만들기: 품목제조보고서·영양성적서를 첨부(또는 붙여넣기)하면 컬러박스용 한글표기사항 엑셀 파일을 만들어 내려줍니다.</div>
       <div id="errBox" hidden class="err"></div>
-      <details class="hist" id="hist"><summary>최근 검수 이력 (팀 공유 · 최근 30건)</summary><ul id="histList"></ul></details>
+      <details class="hist" id="drafts"><summary>📂 공유 작업 문안 (함께 보고 수정)</summary><ul id="draftList"></ul></details>
+      <details class="hist" id="hist"><summary>최근 검수 이력 (팀 공유 · 최근 30건)</summary>
+        <input id="histSearch" type="search" placeholder="🔍 이력 검색 (제품명·유형·날짜)" style="width:100%;box-sizing:border-box;margin:8px 0 4px;padding:7px 10px;border:1px solid var(--line);border-radius:7px;font:inherit;font-size:12.5px;background:var(--paper);color:var(--ink);">
+        <ul id="histList"></ul>
+      </details>
     </section>
     <section class="panel">
       <div id="prescan" hidden><span class="lbl" style="margin-top:0;">즉시 감지 (규칙 기반 · 무료)</span><ul id="prescanList"></ul></div>
@@ -274,6 +281,8 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs
     document.getElementById('prescan').hidden=true;refs.hidden=true;refList.innerHTML='';errBox.hidden=true;
     applyResult(rec.r||'');
     if(!rec.r)document.getElementById('actrow').hidden=true;
+    var dn=document.getElementById('draftNote');
+    dn.hidden=false;dn.textContent='📋 이력을 불러왔습니다 — 왼쪽 문안을 자유롭게 수정한 뒤 [검수하기]로 다시 검수하거나(새 이력으로 기록), 💾 버튼으로 공유 작업 문안에 저장하면 상대방도 이어서 수정할 수 있습니다.';
     try{localStorage.setItem('lc.txt',txt.value);}catch(e){}
     window.scrollTo({top:0,behavior:'smooth'});
   }
@@ -300,8 +309,16 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs
         };
         ul.appendChild(li);
       });
+      applyHistFilter();
     }).catch(function(){ul.innerHTML='<li style="color:var(--sub);cursor:default;">이력을 불러오지 못했습니다.</li>';});
   }
+  function applyHistFilter(){
+    var q=(document.getElementById('histSearch').value||'').trim().toLowerCase();
+    [].forEach.call(document.querySelectorAll('#histList li'),function(li){
+      li.style.display=(!q||li.textContent.toLowerCase().indexOf(q)>=0)?'':'none';
+    });
+  }
+  document.getElementById('histSearch').addEventListener('input',applyHistFilter);
 
   try{ var s=localStorage.getItem('lc.txt'); if(s){txt.value=s;exTag.hidden=true;} else txt.value=EXAMPLE; }catch(e){txt.value=EXAMPLE;}
   txt.addEventListener('input',function(){exTag.hidden=true;try{localStorage.setItem('lc.txt',txt.value);}catch(e){}});
@@ -333,6 +350,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs
       gate.style.display='none';
       loadStatus();
       renderHist();
+      renderDrafts();
     }else{
       gateErr.textContent='코드가 올바르지 않습니다.';
       try{localStorage.removeItem('lc.code');}catch(e){}
@@ -351,6 +369,65 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs
     }).catch(function(){alert('복사 실패 - 결과를 드래그해서 복사해주세요.');});
   };
   document.getElementById('printBtn').onclick=function(){window.print();};
+
+  // === 공유 작업 문안 ===
+  function myName(){
+    var n='';
+    try{n=localStorage.getItem('lc.author')||'';}catch(e){}
+    if(!n){
+      n=(window.prompt('저장자 이름을 입력하세요 (한 번만 물어봅니다)','')||'').trim();
+      if(n){try{localStorage.setItem('lc.author',n);}catch(e){}}
+    }
+    return n||'이름없음';
+  }
+  document.getElementById('draftSave').onclick=function(){
+    if(!txt.value.trim()){txt.focus();return;}
+    var guess=(txt.value.match(/제품명\s*[:：]\s*([^\n]{1,30})/)||[])[1]||'';
+    var name=(window.prompt('공유할 문안 이름 (같은 이름으로 저장하면 덮어씁니다)',guess.trim())||'').trim();
+    if(!name)return;
+    fetch('/api/draft',{method:'POST',headers:hdrs({'Content-Type':'application/json'}),
+      body:JSON.stringify({n:name,text:txt.value,p:ptype,by:myName()})})
+      .then(function(r){return r.json();})
+      .then(function(d){
+        if(d.ok){
+          var note=document.getElementById('draftNote');
+          note.hidden=false;note.textContent='💾 "'+name+'" 공유 저장됨 ('+d.u+') — 상대방도 아래 공유 작업 문안에서 열어 수정할 수 있습니다.';
+          setTimeout(renderDrafts,1500);
+        }
+      }).catch(function(){alert('저장 실패 - 인터넷 연결을 확인하세요.');});
+  };
+  function renderDrafts(){
+    var ul=document.getElementById('draftList');
+    fetch('/api/drafts',{headers:hdrs()}).then(function(r){return r.json();}).then(function(d){
+      ul.innerHTML='';
+      var items=d.items||[];
+      if(!items.length){ul.innerHTML='<li style="color:var(--sub);cursor:default;">저장된 작업 문안이 없습니다 — 문안을 쓰고 💾 버튼으로 공유하세요.</li>';return;}
+      items.forEach(function(item){
+        var li=document.createElement('li');
+        li.textContent=item.n+' — '+(item.by||'?')+' · '+item.u;
+        var del=document.createElement('span');
+        del.textContent='✕';del.title='삭제';del.style.cssText='color:var(--sub);margin-left:8px;padding:0 4px;';
+        del.onclick=function(ev){
+          ev.stopPropagation();
+          if(!confirm('"'+item.n+'" 문안을 공유 목록에서 삭제할까요?'))return;
+          fetch('/api/draft/'+encodeURIComponent(item.id),{method:'DELETE',headers:hdrs()}).then(function(){renderDrafts();});
+        };
+        li.appendChild(del);
+        li.onclick=function(){
+          fetch('/api/draft/'+encodeURIComponent(item.id),{headers:hdrs()}).then(function(r){return r.json();}).then(function(rec){
+            txt.value=rec.text||'';exTag.hidden=true;
+            var map={'일반식품':tG,'건강기능식품':tH,'수출(미국)':tU,'수출(일본)':tJ};
+            if(map[rec.p])setType(rec.p,map[rec.p]);
+            try{localStorage.setItem('lc.txt',txt.value);}catch(e){}
+            var note=document.getElementById('draftNote');
+            note.hidden=false;note.textContent='📂 "'+rec.n+'" 불러옴 — '+(rec.by||'?')+'님이 '+rec.u+'에 저장. 수정 후 💾 버튼으로 같은 이름 저장하면 갱신됩니다.';
+            window.scrollTo({top:0,behavior:'smooth'});
+          }).catch(function(){});
+        };
+        ul.appendChild(li);
+      });
+    }).catch(function(){});
+  }
   document.getElementById('xlsBtn').onclick=function(){
     if(!lastExcel||!window.XLSX){alert('엑셀 데이터가 없거나 라이브러리를 불러오지 못했습니다.');return;}
     var wb=XLSX.utils.book_new();

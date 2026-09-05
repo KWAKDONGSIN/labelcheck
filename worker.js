@@ -337,6 +337,36 @@ export default {
       return json({ text });
     }
 
+    // 공유 작업 문안(드래프트) - 같은 접속 코드 사용자끼리 함께 보고 수정
+    if (url.pathname === "/api/drafts" && request.method === "GET") {
+      if (!authorized(request, env)) return json({ error: "auth" }, 401);
+      const list = await env.HIST.list({ prefix: "d:", limit: 50 });
+      return json({ items: list.keys.map((k) => ({ id: k.name, n: (k.metadata || {}).n || "", u: (k.metadata || {}).u || "", by: (k.metadata || {}).by || "" })) });
+    }
+    if (url.pathname === "/api/draft" && request.method === "POST") {
+      if (!authorized(request, env)) return json({ error: "auth" }, 401);
+      let body;
+      try { body = await request.json(); } catch (e) { return json({ error: "bad_request" }, 400); }
+      const name = String(body.n || "").trim().slice(0, 50);
+      if (!name) return json({ error: "no_name", message: "문안 이름이 필요합니다." }, 400);
+      const id = "d:" + name.replace(/[\/\\]/g, " ");
+      const u = new Date().toLocaleString("ko-KR", { timeZone: "Asia/Seoul", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
+      const rec = { n: name, text: String(body.text || "").slice(0, 20000), p: String(body.p || "일반식품").slice(0, 20), by: String(body.by || "").slice(0, 20), u };
+      await env.HIST.put(id, JSON.stringify(rec), { metadata: { n: rec.n, u: rec.u, by: rec.by } });
+      return json({ ok: true, id, u });
+    }
+    if (url.pathname.startsWith("/api/draft/") && request.method === "GET") {
+      if (!authorized(request, env)) return json({ error: "auth" }, 401);
+      const rec = await env.HIST.get(decodeURIComponent(url.pathname.slice("/api/draft/".length)));
+      if (!rec) return json({ error: "not_found" }, 404);
+      return new Response(rec, { headers: { "Content-Type": "application/json; charset=utf-8" } });
+    }
+    if (url.pathname.startsWith("/api/draft/") && request.method === "DELETE") {
+      if (!authorized(request, env)) return json({ error: "auth" }, 401);
+      await env.HIST.delete(decodeURIComponent(url.pathname.slice("/api/draft/".length)));
+      return json({ ok: true });
+    }
+
     if (request.method === "POST" && url.pathname === "/api/check") {
       if (!authorized(request, env)) return json({ error: "auth", message: "접속 코드가 올바르지 않습니다." }, 401);
       if (!env.ANTHROPIC_API_KEY) return json({ error: "no_key", message: "서버에 API 키가 설정되지 않았습니다." }, 500);
