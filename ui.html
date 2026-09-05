@@ -105,7 +105,7 @@ details.hist ul{padding-left:4px;}
       <div class="thumbs" id="thumbs"></div>
       <div class="hint" id="pdfInfo" hidden></div>
       <button id="ocrBtn" type="button" hidden style="margin-top:8px;padding:8px 14px;border:1px solid var(--accent);border-radius:8px;background:var(--accent-soft);color:var(--accent);font:inherit;font-size:12.5px;cursor:pointer;font-weight:700;">📖 사진 속 문구 읽어오기 (OCR)</button>
-      <label class="chk"><input type="checkbox" id="compose"> 표기 문안 생성 (검수 대신, 품목제조보고서 등으로 표시사항 초안 작성)</label>
+      <label class="chk"><input type="checkbox" id="compose"> 표기 문안 생성 (품목제조보고서·영양성적서로 표시사항 초안 + 엑셀 파일 생성)</label>
       <label class="chk"><input type="checkbox" id="suggest" checked> 수정 문안 추천 (위반 문구를 규정에 맞게 고친 대체 문안 제시)</label>
       <label class="chk"><input type="checkbox" id="precise"> 정밀 검수 (더 꼼꼼하지만 비용 약 2~5배)</label>
       <button class="go" id="go" type="button">검수하기</button>
@@ -118,6 +118,7 @@ details.hist ul{padding-left:4px;}
       <div class="actrow" id="actrow" hidden>
         <button id="copyBtn" type="button">📋 결과 복사</button>
         <button id="printBtn" type="button">🖨️ 인쇄 / PDF 저장</button>
+        <button id="xlsBtn" type="button" hidden style="border-color:var(--accent);color:var(--accent);font-weight:700;">📥 표기사항 엑셀 다운로드</button>
       </div>
       <details class="refs" id="refs" hidden><summary>이번 검수에 참조한 규정 조문</summary><ul id="refList"></ul></details>
     </section>
@@ -129,6 +130,7 @@ import * as pdfjsLib from "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/
 window.pdfjsLib = pdfjsLib;
 pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.worker.min.mjs";
 </script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 (function(){
   var EXAMPLE="제품명: 맑은아침 도라지배차\n식품유형: 액상차\n원재료명: 배농축액, 도라지추출액, 대추, 생강\n내용량: 1,000ml\n광고 문구: 기침·가래에 특효! 감기 예방에 좋은 차. 마시면 면역력이 쑥쑥. 100% 국내산. 무설탕, 무방부제.";
@@ -138,7 +140,31 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs
   var fileIn=document.getElementById('fileIn'),thumbs=document.getElementById('thumbs'),pdfInfo=document.getElementById('pdfInfo');
   var kbline=document.getElementById('kbline'),refs=document.getElementById('refs'),refList=document.getElementById('refList');
   var gate=document.getElementById('gate'),codeIn=document.getElementById('codeIn'),gateErr=document.getElementById('gateErr');
-  var ptype='일반식품', images=[], pdfText='', accessCode='', lastResult='';
+  var ptype='일반식품', images=[], pdfText='', accessCode='', lastResult='', lastExcel=null;
+
+  function parseExcel(md){
+    var sheets=[], re=/\[EXCEL:([^\]\n]+)\]([\s\S]*?)(?=\[EXCEL:|\[\/EXCEL\]|$)/g, m;
+    while((m=re.exec(md))){
+      var rows=m[2].split('\n').map(function(l){return l.trim();})
+        .filter(function(l){return l&&l.indexOf('|')>=0&&!/^\(.*\)$/.test(l);})
+        .map(function(l){return l.replace(/^\|/,'').replace(/\|$/,'').split('|').map(function(c){return c.trim();});});
+      if(rows.length>1)sheets.push({name:m[1].trim().slice(0,28),rows:rows});
+    }
+    return sheets.length?sheets:null;
+  }
+  function stripExcel(md){
+    md=md.replace(/\[EXCEL:[^\]\n]+\][\s\S]*?\[\/EXCEL\]\s*/g,'');
+    var i=md.search(/(```\s*\n?)?\[EXCEL:/);
+    if(i>=0)md=md.slice(0,i);
+    return md.replace(/^```.*$/gm,'').trim();
+  }
+  function applyResult(raw){
+    lastExcel=parseExcel(raw);
+    lastResult=lastExcel?stripExcel(raw):raw;
+    out.innerHTML=render(lastResult)+(lastExcel?'<p class="placeholder">📥 표기사항 엑셀 파일이 준비됐습니다 — 아래 버튼으로 내려받으세요.</p>':'');
+    document.getElementById('actrow').hidden=false;
+    document.getElementById('xlsBtn').hidden=!lastExcel;
+  }
 
   function saveHist(result,reqText,reqPtype){
     var name=((reqText.match(/제품명\s*[:：]\s*([^\n]{1,30})/)||[])[1]||reqText.slice(0,25)).trim();
@@ -153,8 +179,8 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs
     images=[];pdfText='';thumbs.innerHTML='';fileIn.value='';pdfInfo.hidden=true;
     document.getElementById('ocrBtn').hidden=true;
     document.getElementById('prescan').hidden=true;refs.hidden=true;refList.innerHTML='';errBox.hidden=true;
-    out.innerHTML=render(rec.r||'');lastResult=rec.r||'';
-    document.getElementById('actrow').hidden=!lastResult;
+    applyResult(rec.r||'');
+    if(!rec.r)document.getElementById('actrow').hidden=true;
     try{localStorage.setItem('lc.txt',txt.value);}catch(e){}
     window.scrollTo({top:0,behavior:'smooth'});
   }
@@ -232,6 +258,23 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs
     }).catch(function(){alert('복사 실패 - 결과를 드래그해서 복사해주세요.');});
   };
   document.getElementById('printBtn').onclick=function(){window.print();};
+  document.getElementById('xlsBtn').onclick=function(){
+    if(!lastExcel||!window.XLSX){alert('엑셀 데이터가 없거나 라이브러리를 불러오지 못했습니다.');return;}
+    var wb=XLSX.utils.book_new();
+    var pname='표기사항';
+    lastExcel.forEach(function(sh){
+      var ws=XLSX.utils.aoa_to_sheet(sh.rows);
+      ws['!cols']=sh.rows[0].map(function(h,i){
+        var w=10;
+        sh.rows.forEach(function(r){var len=(r[i]||'').length;if(len>w)w=len;});
+        return {wch:Math.min(w+4,70)};
+      });
+      XLSX.utils.book_append_sheet(wb,ws,sh.name.replace(/[\\\/\?\*\[\]:]/g,' '));
+      sh.rows.forEach(function(r){if(r[1]==='제품명'&&r[2])pname=r[2].slice(0,20);});
+    });
+    var d=new Date(),ymd=String(d.getFullYear()).slice(2)+String(d.getMonth()+1).padStart(2,'0')+String(d.getDate()).padStart(2,'0');
+    XLSX.writeFile(wb,pname+'_한글표기사항_'+ymd+'.xlsx');
+  };
 
   function loadStatus(){
     fetch('/api/status',{headers:hdrs()}).then(function(r){return r.json();}).then(function(s){
@@ -468,8 +511,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs
         out.innerHTML=render(acc);
         var complete=(stopReason==='end_turn'||stopReason==='stop_sequence')&&!streamErr;
         if(complete){
-          lastResult=acc;
-          document.getElementById('actrow').hidden=false;
+          applyResult(acc);
           saveHist(acc,reqText,reqPtype);
         }else{
           out.innerHTML+='<p class="err">⚠ '+(stopReason==='max_tokens'?'응답이 길이 제한으로 잘렸습니다 — 문구를 나눠서 다시 검수하세요.':'응답이 중간에 중단되었습니다 — 다시 시도해주세요.')+' (미완료 결과는 이력에 저장되지 않습니다)</p>';
