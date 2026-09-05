@@ -431,13 +431,25 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs
       for(var p=1;p<=maxP;p++){
         var page=await doc.getPage(p);
         try{var tc=await page.getTextContent();texts.push(tc.items.map(function(it){return it.str;}).join(' '));}catch(e){}
-        var vp=page.getViewport({scale:1.5});
+        var vp=page.getViewport({scale:2});
         var cv=document.createElement('canvas');cv.width=vp.width;cv.height=vp.height;
         await page.render({canvasContext:cv.getContext('2d'),viewport:vp}).promise;
-        images.push(await shrink(cv,f.name+' p'+p));
+        // 세로형 문서는 위·아래 2분할로 보내 실질 판독 해상도를 2배로 높인다 (10% 겹침)
+        if(cv.height/cv.width>1.25){
+          var hHalf=Math.round(cv.height*0.58);
+          var top=document.createElement('canvas');top.width=cv.width;top.height=hHalf;
+          top.getContext('2d').drawImage(cv,0,0,cv.width,hHalf,0,0,cv.width,hHalf);
+          var yB=Math.round(cv.height*0.42);
+          var bot=document.createElement('canvas');bot.width=cv.width;bot.height=cv.height-yB;
+          bot.getContext('2d').drawImage(cv,0,yB,cv.width,cv.height-yB,0,0,cv.width,cv.height-yB);
+          images.push(await shrink(top,f.name+' p'+p+'상'));
+          images.push(await shrink(bot,f.name+' p'+p+'하'));
+        }else{
+          images.push(await shrink(cv,f.name+' p'+p));
+        }
       }
       var joined=texts.join('\n').replace(/\s{2,}/g,' ').trim();
-      if(joined.length>30)pdfText+='\n[PDF 추출 텍스트: '+f.name+']\n'+joined.slice(0,3000);
+      if(joined.length>30)pdfText+='\n[PDF 추출 텍스트: '+f.name+']\n'+joined.slice(0,6000);
       pdfInfo.hidden=false;
       pdfInfo.textContent='PDF '+f.name+' — '+maxP+'페이지 변환'+(joined.length>30?' + 텍스트 추출':' (스캔본)')+(doc.numPages>6?' ⚠ 앞 6쪽만 처리됨':'');
     }catch(e){pdfInfo.hidden=false;pdfInfo.textContent='PDF 변환 실패: '+f.name;}
@@ -455,10 +467,10 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs
         });
       }
     }
-    if(images.length>8){
+    if(images.length>14){
       pdfInfo.hidden=false;
-      pdfInfo.textContent=(pdfInfo.textContent?pdfInfo.textContent+' · ':'')+'⚠ 이미지 '+images.length+'장 중 앞 8장만 전송됩니다';
-      images=images.slice(0,8);
+      pdfInfo.textContent=(pdfInfo.textContent?pdfInfo.textContent+' · ':'')+'⚠ 이미지 '+images.length+'장 중 앞 14장만 전송됩니다';
+      images=images.slice(0,14);
     }
     document.getElementById('ocrBtn').hidden=(images.length===0);
   });
@@ -550,7 +562,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs
     errBox.hidden=true;refs.hidden=true;refList.innerHTML='';
     var warns=[];
     if(reqText.length>5000)warns.push('입력 '+reqText.length.toLocaleString()+'자 중 앞 5,000자만 검수됩니다 — 나눠서 검수하세요.');
-    if(pdfText.length>3000)warns.push('PDF 추출 텍스트는 앞 3,000자만 전달됩니다.');
+    if(pdfText.length>6000)warns.push('PDF 추출 텍스트는 앞 6,000자만 전달됩니다.');
     if(reqMode!=='excel')prescan(reqText+'\n'+pdfText,warns);
     go.disabled=true;document.getElementById('goXls').disabled=true;
     out.innerHTML='<p class="thinking">'+(reqMode==='excel'?'자료에서 표기사항을 추출해 엑셀을 만드는 중입니다… (20~60초)':'규정 조문과 대조해 검수하는 중입니다… (10~40초)')+'</p>';

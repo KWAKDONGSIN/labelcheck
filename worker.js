@@ -69,7 +69,7 @@ function buildPrompt(ptype, text, pdftext, picked, hasImages, suggest, compose) 
       ref ? "[규정 자료]\n" + ref : "",
       "[제공된 제품 정보]",
       text.slice(0, 5000),
-      pdftext ? pdftext.slice(0, 3000) : "",
+      pdftext ? pdftext.slice(0, 6000) : "",
       hasImages ? "\n(첨부된 이미지·PDF의 내용도 정보로 활용하라)" : "",
       "",
       "[출력 형식 - 반드시 이 마크다운 구조로]",
@@ -105,7 +105,7 @@ function buildPrompt(ptype, text, pdftext, picked, hasImages, suggest, compose) 
     ref ? "[규정 자료 - 이 발췌를 근거로 인용하라]\n" + ref : "",
     "[검수 대상 문구]",
     text.slice(0, 5000),
-    pdftext ? pdftext.slice(0, 3000) : "",
+    pdftext ? pdftext.slice(0, 6000) : "",
     hasImages ? "\n(첨부된 패키지 이미지·PDF 페이지의 문구와 표시면도 함께 검수하라)" : "",
     "",
     "[출력 형식 - 반드시 이 마크다운 구조로]",
@@ -148,7 +148,7 @@ function buildExportPrompt(country, text, pdftext, hasImages, suggest) {
     "",
     "[검수 대상 문구 - 한국어 라벨이거나 현지어 초안일 수 있다]",
     text.slice(0, 5000),
-    pdftext ? pdftext.slice(0, 3000) : "",
+    pdftext ? pdftext.slice(0, 6000) : "",
     hasImages ? "\n(첨부된 패키지 이미지·PDF 페이지의 문구와 표시면도 함께 검수하라)" : "",
     "",
     "[출력 형식 - 반드시 이 마크다운 구조로]",
@@ -178,7 +178,7 @@ function buildExcelPrompt(text, pdftext, hasImages) {
     "",
     "[자료]",
     text.slice(0, 6000),
-    pdftext ? pdftext.slice(0, 3000) : "",
+    pdftext ? pdftext.slice(0, 6000) : "",
     hasImages ? "(첨부된 이미지·PDF 페이지의 내용을 자료로 읽어서 사용하라)" : "",
     "",
     "[핵심 규칙 - 반드시 지켜라]",
@@ -311,7 +311,7 @@ export default {
       if (!env.ANTHROPIC_API_KEY) return json({ error: "no_key" }, 500);
       let body;
       try { body = await request.json(); } catch (e) { return json({ error: "bad_request" }, 400); }
-      const images = (body.images || []).slice(0, 8);
+      const images = (body.images || []).slice(0, 14);
       if (!images.length) return json({ error: "no_image", message: "이미지가 없습니다." }, 400);
       const content = [];
       for (const durl of images) {
@@ -349,7 +349,7 @@ export default {
       const ptype = body.ptype || "일반식품";
       const text = body.text || "";
       const pdftext = body.pdftext || "";
-      const images = (body.images || []).slice(0, 8);
+      const images = (body.images || []).slice(0, 14);
       const suggest = !!body.suggest;
       const compose = !!body.compose;
       const excelOnly = body.mode === "excel";
