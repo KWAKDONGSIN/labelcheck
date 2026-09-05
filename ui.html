@@ -34,6 +34,12 @@ textarea{width:100%;box-sizing:border-box;min-height:220px;resize:vertical;paddi
 .result h2:first-child{margin-top:0;}
 .result p,.result li{font-size:13.5px;margin:6px 0;}
 .result ul{padding-left:18px;margin:6px 0;}
+.tblwrap{overflow-x:auto;margin:10px 0;}
+.result table{border-collapse:collapse;width:100%;font-size:12.5px;}
+.result th,.result td{border:1px solid var(--line);padding:7px 9px;text-align:left;vertical-align:top;line-height:1.55;}
+.result th{background:var(--accent-soft);font-weight:700;white-space:nowrap;}
+.result tr:nth-child(odd) td{background:var(--paper);}
+.result .quote{border-left:3px solid var(--accent);background:var(--accent-soft);padding:7px 11px;margin:5px 0;border-radius:0 6px 6px 0;}
 .badge{display:inline-block;font-size:11.5px;font-weight:700;padding:1px 8px;border-radius:20px;margin-right:6px;}
 .b-hi{background:var(--hi-bg);color:var(--hi);}
 .b-mid{background:var(--mid-bg);color:var(--mid);}
@@ -234,15 +240,30 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs
   function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
   function inline(s){s=s.replace(/\*\*(.+?)\*\*/g,'<b>$1</b>');s=s.replace(/\[(높음)\]/g,'<span class="badge b-hi">높음</span>');s=s.replace(/\[(중간)\]/g,'<span class="badge b-mid">중간</span>');s=s.replace(/\[(낮음)\]/g,'<span class="badge b-low">낮음</span>');return s;}
   function render(md){
-    var lines=esc(md).split('\n'),html='',inList=false;
-    for(var i=0;i<lines.length;i++){var L=lines[i],isLi=/^\s*[-*]\s+/.test(L)||/^\s*\d+[.)]\s+/.test(L);
+    var lines=esc(md).split('\n'),html='',inList=false,inTable=false,isHeader=false;
+    for(var i=0;i<lines.length;i++){
+      var L=lines[i];
+      var isTbl=/^\s*\|.*\|\s*$/.test(L);
+      if(inTable&&!isTbl){html+='</table></div>';inTable=false;}
+      if(isTbl){
+        if(inList){html+='</ul>';inList=false;}
+        var cells=L.trim().replace(/^\|/,'').replace(/\|$/,'').split('|');
+        if(/^\s*:?-{2,}/.test(cells[0])){continue;}
+        if(!inTable){html+='<div class="tblwrap"><table>';inTable=true;isHeader=true;}
+        html+='<tr>'+cells.map(function(c){var t=inline(c.trim());return isHeader?'<th>'+t+'</th>':'<td>'+t+'</td>';}).join('')+'</tr>';
+        isHeader=false;
+        continue;
+      }
+      var isLi=/^\s*[-*]\s+/.test(L)||/^\s*\d+[.)]\s+/.test(L);
       if(inList&&!isLi){html+='</ul>';inList=false;}
       if(/^-{3,}\s*$/.test(L.trim())){continue;}
       if(/^#{1,3}\s+/.test(L)){html+='<h2>'+L.replace(/^#{1,3}\s+/,'')+'</h2>';continue;}
+      if(/^&gt;\s?/.test(L)){html+='<p class="quote">'+inline(L.replace(/^&gt;\s?/,''))+'</p>';continue;}
       if(isLi){if(!inList){html+='<ul>';inList=true;}html+='<li>'+inline(L.replace(/^\s*(?:[-*]|\d+[.)])\s+/,''))+'</li>';continue;}
       if(L.trim()===''){continue;}
       html+='<p>'+inline(L)+'</p>';}
     if(inList)html+='</ul>';
+    if(inTable)html+='</table></div>';
     return html;
   }
 
