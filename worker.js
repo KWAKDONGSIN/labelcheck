@@ -224,6 +224,42 @@ function buildExcelPrompt(text, pdftext, hasImages) {
   ].join("\n");
 }
 
+// 카카오 '나에게 보내기' - KV에 저장된 토큰으로 전송, 만료 시 자동 갱신
+async function sendKakao(env, text) {
+  try {
+    const raw = await env.HIST.get("kakao:tokens");
+    if (!raw || !env.KAKAO_REST_KEY) return false;
+    let tok = JSON.parse(raw);
+    const doSend = async (accessToken) => {
+      const r = await fetch("https://kapi.kakao.com/v2/api/talk/memo/default/send", {
+        method: "POST",
+        headers: { "Authorization": "Bearer " + accessToken, "Content-Type": "application/x-www-form-urlencoded" },
+        body: "template_object=" + encodeURIComponent(JSON.stringify({
+          object_type: "text", text: text.slice(0, 900),
+          link: { web_url: "https://labelcheck.dkmdkm999.workers.dev" },
+          button_title: "라벨체크 열기",
+        })),
+      });
+      return r.status;
+    };
+    let status = await doSend(tok.a);
+    if (status === 401) {
+      const tr = await fetch("https://kauth.kakao.com/oauth/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: "grant_type=refresh_token&client_id=" + env.KAKAO_REST_KEY + (env.KAKAO_CLIENT_SECRET ? "&client_secret=" + env.KAKAO_CLIENT_SECRET : "") + "&refresh_token=" + tok.r,
+      });
+      const nt = await tr.json();
+      if (nt.access_token) {
+        tok = { a: nt.access_token, r: nt.refresh_token || tok.r, t: Date.now() };
+        await env.HIST.put("kakao:tokens", JSON.stringify(tok));
+        status = await doSend(tok.a);
+      }
+    }
+    return status === 200;
+  } catch (e) { return false; }
+}
+
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
@@ -335,6 +371,56 @@ export default {
       const res = await upstream.json();
       const text = (res.content || []).filter((b) => b.type === "text").map((b) => b.text).join("\n");
       return json({ text });
+    }
+
+    // ===== 카카오톡 알림 (나에게 보내기) =====
+    // 최초 1회: /api/kakao/start 에서 카카오 로그인 동의 → 토큰을 KV에 저장
+    if (url.pathname === "/api/kakao/start" && request.method === "GET") {
+      if (!env.KAKAO_REST_KEY) return json({ error: "no_kakao_key" }, 500);
+      const redirect = url.origin + "/api/kakao/callback";
+      const auth = "https://kauth.kakao.com/oauth/authorize?client_id=" + env.KAKAO_REST_KEY +
+        "&redirect_uri=" + encodeURIComponent(redirect) + "&response_type=code&scope=talk_message";
+      return Response.redirect(auth, 302);
+    }
+    if (url.pathname === "/api/kakao/callback" && request.method === "GET") {
+      const code = url.searchParams.get("code");
+      if (!code) return new Response("인증 코드가 없습니다", { status: 400 });
+      const redirect = url.origin + "/api/kakao/callback";
+      const tr = await fetch("https://kauth.kakao.com/oauth/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: "grant_type=authorization_code&client_id=" + env.KAKAO_REST_KEY + (env.KAKAO_CLIENT_SECRET ? "&client_secret=" + env.KAKAO_CLIENT_SECRET : "") +
+          "&redirect_uri=" + encodeURIComponent(redirect) + "&code=" + code,
+      });
+      const tok = await tr.json();
+      if (!tok.access_token) return new Response("카카오 토큰 발급 실패: " + JSON.stringify(tok).slice(0, 200), { status: 500 });
+      await env.HIST.put("kakao:tokens", JSON.stringify({ a: tok.access_token, r: tok.refresh_token, t: Date.now() }));
+      return new Response("<meta charset='utf-8'><h2>✅ 카카오톡 알림 연결 완료</h2><p>이제 문의가 오면 카카오톡 '나와의 채팅'으로 알림이 갑니다. 이 창은 닫아도 됩니다.</p>", { headers: { "Content-Type": "text/html; charset=utf-8" } });
+    }
+
+    // ===== 문의하기 =====
+    if (url.pathname === "/api/inquiry" && request.method === "POST") {
+      if (!authorized(request, env)) return json({ error: "auth" }, 401);
+      let body;
+      try { body = await request.json(); } catch (e) { return json({ error: "bad_request" }, 400); }
+      const by = String(body.by || "익명").slice(0, 20);
+      const msg = String(body.msg || "").trim().slice(0, 1000);
+      if (!msg) return json({ error: "empty" }, 400);
+      const u = new Date().toLocaleString("ko-KR", { timeZone: "Asia/Seoul", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
+      const id = "i:" + String(1e13 - Date.now());
+      await env.HIST.put(id, JSON.stringify({ by, msg, u }), { metadata: { by, u } });
+      const sent = await sendKakao(env, "📩 라벨체크 문의\n보낸사람: " + by + " (" + u + ")\n\n" + msg);
+      return json({ ok: true, kakao: sent });
+    }
+    if (url.pathname === "/api/inquiries" && request.method === "GET") {
+      if (!authorized(request, env)) return json({ error: "auth" }, 401);
+      const list = await env.HIST.list({ prefix: "i:", limit: 30 });
+      const items = [];
+      for (const k of list.keys) {
+        const v = await env.HIST.get(k.name);
+        if (v) items.push({ id: k.name, ...JSON.parse(v) });
+      }
+      return json({ items });
     }
 
     // 공유 작업 문안(드래프트) - 같은 접속 코드 사용자끼리 함께 보고 수정

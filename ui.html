@@ -115,6 +115,11 @@ details.hist ul{padding-left:4px;}
       <button class="go" id="goXls" type="button" style="margin-top:8px;background:var(--card);color:var(--accent);border:2px solid var(--accent);">📊 표기사항 엑셀 만들기</button>
       <div class="hint">엑셀 만들기: 품목제조보고서·영양성적서를 첨부(또는 붙여넣기)하면 컬러박스용 한글표기사항 엑셀 파일을 만들어 내려줍니다.</div>
       <div id="errBox" hidden class="err"></div>
+      <details class="hist" id="inq"><summary>💬 문의하기 (관리자 카톡으로 바로 전달)</summary>
+        <textarea id="inqMsg" style="min-height:70px;margin-top:8px;" placeholder="질문이나 요청을 남기면 관리자 카카오톡으로 즉시 알림이 갑니다."></textarea>
+        <button id="inqSend" type="button" style="margin-top:6px;padding:7px 14px;border:1px solid var(--accent);border-radius:7px;background:var(--accent);color:var(--accent-ink);font:inherit;font-size:12.5px;cursor:pointer;font-weight:700;">보내기</button>
+        <span id="inqNote" class="hint" style="margin-left:8px;"></span>
+      </details>
       <details class="hist" id="drafts"><summary>📂 공유 작업 문안 (함께 보고 수정)</summary><ul id="draftList"></ul></details>
       <details class="hist" id="hist"><summary>최근 검수 이력 (팀 공유 · 최근 30건)</summary>
         <input id="histSearch" type="search" placeholder="🔍 이력 검색 (제품명·유형·날짜)" style="width:100%;box-sizing:border-box;margin:8px 0 4px;padding:7px 10px;border:1px solid var(--line);border-radius:7px;font:inherit;font-size:12.5px;background:var(--paper);color:var(--ink);">
@@ -369,6 +374,23 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs
     }).catch(function(){alert('복사 실패 - 결과를 드래그해서 복사해주세요.');});
   };
   document.getElementById('printBtn').onclick=function(){window.print();};
+
+  // === 문의하기 ===
+  document.getElementById('inqSend').onclick=function(){
+    var msg=document.getElementById('inqMsg').value.trim();
+    var note=document.getElementById('inqNote');
+    if(!msg){note.textContent='내용을 입력하세요.';return;}
+    note.textContent='전송 중…';
+    fetch('/api/inquiry',{method:'POST',headers:hdrs({'Content-Type':'application/json'}),
+      body:JSON.stringify({by:myName(),msg:msg})})
+      .then(function(r){return r.json();})
+      .then(function(d){
+        if(d.ok){
+          document.getElementById('inqMsg').value='';
+          note.textContent=d.kakao?'✅ 전달됨 - 관리자 카톡으로 알림이 갔습니다.':'✅ 접수됨 (카톡 알림은 설정 대기 중)';
+        }else{note.textContent='전송 실패 - 다시 시도해주세요.';}
+      }).catch(function(){note.textContent='전송 실패 - 인터넷 연결을 확인하세요.';});
+  };
 
   // === 공유 작업 문안 ===
   function myName(){
