@@ -318,11 +318,12 @@ export default {
         const m = /^data:(image\/(?:png|jpeg|webp|gif));base64,(.+)$/s.exec(durl);
         if (m) content.push({ type: "image", source: { type: "base64", media_type: m[1], data: m[2] } });
       }
-      content.push({ type: "text", text: "이미지(패키지·라벨·문서)에 보이는 모든 문구를 위에서 아래, 왼쪽에서 오른쪽 순서로 그대로 옮겨 적어라(전사). 표시사항 항목(제품명, 원재료명 등)이 구분되면 항목별로 줄을 나눠라. 흐릿해서 확신이 없는 글자는 그대로 적되 뒤에 (?)를 붙여라. 설명·해석·머리말 없이 옮겨 적은 텍스트만 출력하라." });
+      content.push({ type: "text", text: "이것은 한국 식품 패키지·라벨 또는 식품 관련 서류(품목제조보고서·성적서 등)의 사진이다. 보이는 모든 한국어 문구를 위에서 아래, 왼쪽에서 오른쪽 순서로 글자 그대로 옮겨 적어라(전사). 규칙: ① 제품명·회사명 같은 고유명사는 아는 단어로 바꾸지 말고 보이는 글자를 한 글자씩 정확히 옮겨라 ② 표시사항 항목(제품명, 원재료명 등)이 구분되면 항목별로 줄을 나눠라 ③ 흐릿해서 확신이 없는 글자는 최선의 판독을 적되 바로 뒤에 (?)를 붙여라 ④ 표는 행 단위로 | 로 구분해 옮겨라. 설명·해석·머리말 없이 옮겨 적은 텍스트만 출력하라." });
+      // 글자 판독은 정밀 모델(소네트) 사용 - 한국어 고유명사 오독 방지
       const upstream = await relayFetch(env,
         "https://gateway.ai.cloudflare.com/v1/b24a7a0550fd3f7e512be74ed4affa7a/labelcheck/anthropic/v1/messages",
         { "x-api-key": env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-        JSON.stringify({ model: env.MODEL || "claude-haiku-4-5", max_tokens: 2500, messages: [{ role: "user", content }] }));
+        JSON.stringify({ model: env.PRECISE_MODEL || "claude-sonnet-5", max_tokens: 3000, messages: [{ role: "user", content }] }));
       if (!upstream.ok) {
         const status = upstream.status;
         let detail = "";

@@ -146,8 +146,9 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs
 
   // === 예시 서식(컬러박스 한글표기사항) 그대로 엑셀 생성 ===
   var XB={style:'thin',color:{rgb:'999999'}};
-  function xst(o){o=o||{};var s={alignment:{vertical:'center',wrapText:true},border:{top:XB,bottom:XB,left:XB,right:XB}};
-    s.font={sz:o.sz||10,bold:!!o.b};
+  function xst(o){o=o||{};var s={alignment:{vertical:o.top?'top':'center',wrapText:true},border:{top:XB,bottom:XB,left:XB,right:XB}};
+    s.font={name:'맑은 고딕',sz:o.sz||10,bold:!!o.b};
+    if(o.col)s.font.color={rgb:o.col};
     if(o.f)s.fill={fgColor:{rgb:o.f}};
     if(o.c)s.alignment.horizontal='center';
     if(o.nb)delete s.border;
@@ -160,45 +161,57 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs
     var find=function(list,kw){var r=list.filter(function(x){return (x[1]||'').indexOf(kw)>=0;})[0];return r?r[2]:'';};
     var pn=function(r){return r&&r[3]?' ('+r[3].replace(/\s*굵게/,'')+')':'';};
     var A=[],M=[],hts={};
-    var HEAD='D9EAD3', SEC='EFEFEF';
-    A.push([xc('',{nb:1}),xc('컬러박스 표시사항',{b:1,sz:14,nb:1})]);
-    A.push([xc('',{nb:1}),xc('주요 표시사항',{b:1,sz:11,nb:1})]);
+    var HEAD='A9D08E', SEC='F2F2F2', HL='FFF2CC', TITLE='3A5F3F';
+    A.push([xc('',{nb:1}),xc('컬러박스 표시사항',{b:1,sz:16,nb:1,col:TITLE})]);
+    A.push([xc('',{nb:1}),xc('주요 표시사항',{b:1,sz:11,nb:1,col:'666666'})]);
+    hts[0]=26;hts[1]=18;
     var r0=A.length;
     var mName=main.filter(function(x){return x[1].indexOf('제품명')>=0;})[0];
     var mType=main.filter(function(x){return x[1].indexOf('유형')>=0;})[0];
     var mAmt=main.filter(function(x){return x[1].indexOf('내용량')>=0;})[0];
     var mIng=main.filter(function(x){return x[1].indexOf('원료')>=0;})[0];
-    A.push([xc('',{nb:1}),xc('주표시면',{b:1,c:1,f:HEAD}),xc('제품명'+pn(mName),{b:1,f:SEC}),xc(mName?mName[2]:'',{b:1,sz:12}),xc(''),xc('식품의 유형',{b:1,f:SEC}),xc(mType?mType[2]:'')]);
+    A.push([xc('',{nb:1}),xc('주표시면',{b:1,c:1,f:HEAD,sz:11}),xc('제품명'+pn(mName),{b:1,f:SEC}),xc(mName?mName[2]:'',{b:1,sz:14}),xc(''),xc('식품의 유형',{b:1,f:SEC,c:1}),xc(mType?mType[2]:'',{b:1,c:1})]);
     A.push([xc('',{nb:1}),null,xc('내용량'+pn(mAmt),{f:SEC}),xc(mAmt?mAmt[2]:''),xc(''),xc(''),xc('')]);
     A.push([xc('',{nb:1}),null,xc('주원료 및 함량'+pn(mIng),{f:SEC}),xc(mIng?mIng[2]:''),xc(''),xc(''),xc('')]);
     M.push({s:{r:r0,c:1},e:{r:r0+2,c:1}});
     M.push({s:{r:r0,c:3},e:{r:r0,c:4}});
     M.push({s:{r:r0+1,c:3},e:{r:r0+1,c:6}});
     M.push({s:{r:r0+2,c:3},e:{r:r0+2,c:6}});
+    hts[r0]=24;
+    hts[r0+2]=Math.max(20,15*Math.ceil(((mIng&&mIng[2])||'').length/52));
     var ri=A.length;
-    var careTxt='■ 주의사항 :\n'+care.map(function(x){return x[1]+' '+x[2];}).join('\n');
-    var storeTxt='■ 보관 방법 :\n'+store.map(function(x){return x[1]+' '+x[2];}).join('\n');
+    var careTxt='■ 주의사항\n'+care.map(function(x){return x[1]+' '+x[2];}).join('\n');
+    var storeTxt='■ 보관 방법\n'+store.map(function(x){return x[1]+' '+x[2];}).join('\n');
     var half=Math.max(2,Math.ceil(info.length/2));
     info.forEach(function(row,k){
-      var line=[xc('',{nb:1}),null,xc(row[1],{f:SEC}),xc(row[2],{b:/굵게/.test(row[3]||'')}),xc(''),xc(''),xc(''),xc(row[3]?'('+row[3].replace(/\s*굵게/,'')+')':'',{sz:9,c:1})];
-      if(k===0&&care.length)line[8]=xc(careTxt,{sz:9});
-      else if(k===half&&store.length)line[8]=xc(storeTxt,{sz:9});
+      var isAllergy=(row[1]||'').indexOf('알레르기')>=0;
+      var line=[xc('',{nb:1}),null,xc(row[1],{f:SEC}),xc(row[2],{b:isAllergy||/굵게/.test(row[3]||''),f:isAllergy?HL:null}),xc(''),xc(''),xc(''),xc(row[3]?'('+row[3].replace(/\s*굵게/,'')+')':'',{sz:9,c:1,col:'888888'})];
+      if(k===0&&care.length)line[8]=xc(careTxt,{sz:9.5,top:1});
+      else if(k===half&&store.length)line[8]=xc(storeTxt,{sz:9.5,top:1});
       else line[8]=xc('');
       A.push(line);
       M.push({s:{r:ri+k,c:3},e:{r:ri+k,c:6}});
-      if((row[2]||'').length>60)hts[ri+k]=Math.min(120,15*Math.ceil(row[2].length/50));
+      hts[ri+k]=Math.max(20,Math.min(140,15*Math.ceil((row[2]||'').length/52)));
     });
     M.push({s:{r:ri,c:1},e:{r:ri+info.length-1,c:1}});
-    A[ri][1]=xc('정보표시면',{b:1,c:1,f:HEAD});
-    if(care.length){M.push({s:{r:ri,c:8},e:{r:ri+half-1,c:9}});hts[ri]=Math.max(hts[ri]||0,16*(care.length+1));}
-    if(store.length&&info.length>half){M.push({s:{r:ri+half,c:8},e:{r:ri+info.length-1,c:9}});}
+    A[ri][1]=xc('정보표시면',{b:1,c:1,f:HEAD,sz:11});
+    if(care.length){
+      M.push({s:{r:ri,c:8},e:{r:ri+half-1,c:9}});
+      var needC=Math.ceil(15*(care.length+1)/half)+4;
+      for(var q=ri;q<ri+half;q++)hts[q]=Math.max(hts[q]||20,needC);
+    }
+    if(store.length&&info.length>half){
+      M.push({s:{r:ri+half,c:8},e:{r:ri+info.length-1,c:9}});
+      var needS=Math.ceil(15*(store.length+1)/Math.max(1,info.length-half))+4;
+      for(var q2=ri+half;q2<ri+info.length;q2++)hts[q2]=Math.max(hts[q2]||20,needS);
+    }
     var other=rows.filter(function(r){return ['주표시면','정보표시면','영양정보','주의사항','보관방법','구분'].indexOf(r[0])<0;});
     other.forEach(function(row){A.push([xc('',{nb:1}),xc(row[0],{f:SEC}),xc(row[1],{f:SEC}),xc(row[2]),xc(''),xc(''),xc(''),xc(row[3]||'',{sz:9})]);M.push({s:{r:A.length-1,c:3},e:{r:A.length-1,c:6}});});
     var ws=XLSX.utils.aoa_to_sheet([[]]);
     A.forEach(function(row,r){row.forEach(function(cell,c){if(cell)ws[XLSX.utils.encode_cell({r:r,c:c})]=cell;});});
     ws['!ref']='A1:'+XLSX.utils.encode_cell({r:A.length-1,c:9});
     ws['!merges']=M;
-    ws['!cols']=[{wch:2},{wch:11},{wch:19},{wch:16},{wch:10},{wch:12},{wch:12},{wch:8},{wch:46},{wch:5}];
+    ws['!cols']=[{wch:2},{wch:11},{wch:20},{wch:18},{wch:11},{wch:12},{wch:13},{wch:7},{wch:50},{wch:4}];
     var rowsArr=[];for(var rr=0;rr<A.length;rr++){rowsArr.push(hts[rr]?{hpt:hts[rr]}:{});}
     ws['!rows']=rowsArr;
     return ws;
@@ -207,14 +220,18 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs
     var ws=XLSX.utils.aoa_to_sheet([[]]);
     var sum=0;
     rows.forEach(function(row,r){
-      row.forEach(function(v,c){ws[XLSX.utils.encode_cell({r:r,c:c})]=xc(v,r===0?{b:1,f:'D9EAD3',c:1}:{});});
+      row.forEach(function(v,c){
+        var o=r===0?{b:1,f:'A9D08E',c:1}:{c:(c!==1),f:(r%2===0?'FAFAFA':null)};
+        ws[XLSX.utils.encode_cell({r:r,c:c})]=xc(v,o);
+      });
       if(r>0){var f=parseFloat(String(row[2]||'').replace('%',''));if(!isNaN(f))sum+=f;}
     });
     var last=rows.length;
-    ws[XLSX.utils.encode_cell({r:last,c:1})]=xc('합계',{b:1});
-    ws[XLSX.utils.encode_cell({r:last,c:2})]=xc(sum.toFixed(2),{b:1});
+    ws[XLSX.utils.encode_cell({r:last,c:0})]=xc('',{f:'F2F2F2'});
+    ws[XLSX.utils.encode_cell({r:last,c:1})]=xc('합계',{b:1,f:'F2F2F2',c:1});
+    ws[XLSX.utils.encode_cell({r:last,c:2})]=xc(sum.toFixed(2)+'%',{b:1,f:'F2F2F2',c:1});
     ws['!ref']='A1:'+XLSX.utils.encode_cell({r:last,c:Math.max(2,(rows[0]||[]).length-1)});
-    ws['!cols']=[{wch:6},{wch:34},{wch:12}];
+    ws['!cols']=[{wch:6},{wch:36},{wch:13}];
     return ws;
   }
 
@@ -397,10 +414,10 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs
   function shrink(imgOrCanvas,name){
     return new Promise(function(res){
       var w=imgOrCanvas.naturalWidth||imgOrCanvas.width,h=imgOrCanvas.naturalHeight||imgOrCanvas.height;
-      var scale=Math.min(1,1400/Math.max(w,h));
+      var scale=Math.min(1,1568/Math.max(w,h));
       var cv=document.createElement('canvas');cv.width=Math.round(w*scale);cv.height=Math.round(h*scale);
       cv.getContext('2d').drawImage(imgOrCanvas,0,0,cv.width,cv.height);
-      var durl=cv.toDataURL('image/jpeg',0.8);
+      var durl=cv.toDataURL('image/jpeg',0.87);
       var im=document.createElement('img');im.alt=name;im.src=durl;thumbs.appendChild(im);
       res(durl);
     });
