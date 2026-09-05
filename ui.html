@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<!-- 라벨체크 웹 - 식품 표시·광고 규정 검수 (Cloudflare Worker 버전 화면) -->
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>라벨체크</title>
+<style>
+:root{--paper:#FAFAF6;--card:#FFF;--ink:#2A2E28;--sub:#6B7065;--line:#DAD9CE;--accent:#4C7A57;--accent-ink:#FFF;--accent-soft:#EAF1EB;--hi:#B03A2E;--hi-bg:#F9ECEA;--mid:#8A6413;--mid-bg:#F7EFDC;--low:#3E6B49;--low-bg:#E8F0E9;--mono:#EFEEE6;}
+body{background:var(--paper);color:var(--ink);font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif;margin:0;line-height:1.65;}
+.wrap{max-width:1040px;margin:0 auto;padding:26px 20px 60px;}
+header.top{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;border-bottom:2px solid var(--accent);padding-bottom:13px;margin-bottom:6px;}
+h1{font-size:23px;font-weight:700;margin:0;}
+.tag{font-size:12.5px;color:var(--sub);}
+.kbline{font-size:11.5px;color:var(--sub);margin:0 0 18px;}
+.kbline b{color:var(--accent);}
+.cols{display:grid;grid-template-columns:minmax(300px,5fr) minmax(320px,7fr);gap:20px;align-items:start;}
+@media (max-width:840px){.cols{grid-template-columns:1fr;}}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:17px 17px 19px;}
+.lbl{display:block;font-size:12px;font-weight:700;letter-spacing:0.07em;color:var(--sub);margin:15px 0 6px;}
+.lbl:first-child{margin-top:0;}
+.seg{display:flex;gap:8px;}
+.seg button{flex:1;padding:9px 6px;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;font:inherit;font-size:13.5px;cursor:pointer;}
+.seg button.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:700;}
+textarea{width:100%;box-sizing:border-box;min-height:220px;resize:vertical;padding:12px;border:1px solid var(--line);border-radius:8px;background:var(--paper);color:var(--ink);font:inherit;font-size:13.5px;}
+.hint{font-size:12px;color:var(--sub);margin-top:5px;}
+.thumbs{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;}
+.thumbs img{width:62px;height:62px;object-fit:cover;border-radius:6px;border:1px solid var(--line);}
+.go{width:100%;margin-top:16px;padding:13px;border:none;border-radius:8px;background:var(--accent);color:var(--accent-ink);font:inherit;font-size:15px;font-weight:700;cursor:pointer;}
+.go:disabled{opacity:0.55;}
+.chk{display:flex;align-items:center;gap:7px;margin-top:10px;font-size:12.5px;color:var(--sub);cursor:pointer;}
+.result{min-height:300px;}
+.result h2{font-size:15px;margin:18px 0 8px;padding-bottom:5px;border-bottom:1px solid var(--mono);}
+.result h2:first-child{margin-top:0;}
+.result p,.result li{font-size:13.5px;margin:6px 0;}
+.result ul{padding-left:18px;margin:6px 0;}
+.badge{display:inline-block;font-size:11.5px;font-weight:700;padding:1px 8px;border-radius:20px;margin-right:6px;}
+.b-hi{background:var(--hi-bg);color:var(--hi);}
+.b-mid{background:var(--mid-bg);color:var(--mid);}
+.b-low{background:var(--low-bg);color:var(--low);}
+.placeholder,.thinking{color:var(--sub);font-size:13.5px;}
+.err{background:var(--hi-bg);color:var(--hi);border-radius:8px;padding:10px 12px;font-size:13px;margin-top:10px;}
+footer.note{margin-top:24px;font-size:11.5px;color:var(--sub);border-top:1px solid var(--mono);padding-top:12px;}
+.exlabel{display:inline-block;font-size:11px;color:var(--accent);background:var(--accent-soft);border-radius:4px;padding:1px 7px;margin-left:6px;font-weight:700;}
+details.refs{margin-top:14px;border-top:1px dashed var(--line);padding-top:10px;}
+details.refs summary{font-size:12.5px;font-weight:700;color:var(--sub);cursor:pointer;}
+details.refs li{font-size:12px;color:var(--sub);margin:4px 0;}
+.srcbadge{display:inline-block;font-size:10.5px;padding:0 6px;border-radius:4px;margin-right:5px;background:var(--accent-soft);color:var(--accent);font-weight:700;}
+.srcbadge.sum{background:var(--mid-bg);color:var(--mid);}
+#prescan{margin-bottom:13px;padding-bottom:11px;border-bottom:1px dashed var(--line);}
+#prescan ul{padding-left:0;list-style:none;margin:4px 0 0;}
+#gate{position:fixed;inset:0;background:var(--paper);display:flex;align-items:center;justify-content:center;z-index:10;}
+#gate .box{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:30px 28px;max-width:340px;width:90%;text-align:center;}
+#gate h2{font-size:18px;margin:0 0 8px;}
+#gate p{font-size:13px;color:var(--sub);margin:0 0 16px;}
+#gate input{width:100%;box-sizing:border-box;padding:11px;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:15px;text-align:center;letter-spacing:0.15em;}
+#gate button{width:100%;margin-top:12px;padding:11px;border:none;border-radius:8px;background:var(--accent);color:var(--accent-ink);font:inherit;font-size:14px;font-weight:700;cursor:pointer;}
+#gateErr{color:var(--hi);font-size:12.5px;margin-top:10px;min-height:16px;}
+</style>
+</head>
+<body>
+<div id="gate">
+  <div class="box">
+    <h2>라벨체크</h2>
+    <p>식품 표시·광고 규정 검수 도구입니다.<br>안내받은 접속 코드를 입력하세요.</p>
+    <input id="codeIn" type="password" placeholder="접속 코드" autocomplete="off">
+    <button id="codeGo" type="button">입장</button>
+    <div id="gateErr"></div>
+  </div>
+</div>
+<div class="wrap">
+  <header class="top"><h1>라벨체크</h1><span class="tag">식품 표시사항 · 광고 문구 규정 검수</span></header>
+  <p class="kbline" id="kbline">지식베이스 확인 중…</p>
+  <div class="cols">
+    <section class="panel">
+      <span class="lbl">제품 유형</span>
+      <div class="seg"><button id="tG" class="on" type="button">일반식품</button><button id="tH" type="button">건강기능식품</button></div>
+      <span class="lbl">패키지·상세페이지 문구 <span class="exlabel" id="exTag">예시</span></span>
+      <textarea id="txt" spellcheck="false"></textarea>
+      <div class="hint">제품명, 원재료명, 광고 문구를 그대로 붙여넣으세요. 일부만 넣어도 됩니다.</div>
+      <span class="lbl">패키지 이미지 · PDF (선택)</span>
+      <input type="file" id="fileIn" multiple accept="image/*,.pdf,application/pdf">
+      <div class="thumbs" id="thumbs"></div>
+      <div class="hint" id="pdfInfo" hidden></div>
+      <label class="chk"><input type="checkbox" id="suggest" checked> 수정 문안 추천 (위반 문구를 규정에 맞게 고친 대체 문안 제시)</label>
+      <label class="chk"><input type="checkbox" id="precise"> 정밀 검수 (더 꼼꼼하지만 비용 약 2~5배)</label>
+      <button class="go" id="go" type="button">검수하기</button>
+      <div id="errBox" hidden class="err"></div>
+    </section>
+    <section class="panel">
+      <div id="prescan" hidden><span class="lbl" style="margin-top:0;">즉시 감지 (규칙 기반 · 무료)</span><ul id="prescanList"></ul></div>
+      <div class="result" id="out"><p class="placeholder">왼쪽에 문구를 넣고 <b>검수하기</b>를 누르면, 규정 원문과 대조해 위반 위험·오타·수정 문안을 짚어드립니다.</p></div>
+      <details class="refs" id="refs" hidden><summary>이번 검수에 참조한 규정 조문</summary><ul id="refList"></ul></details>
+    </section>
+  </div>
+  <footer class="note">내부 참고용 사전 점검 도구입니다. 판정은 AI 추정이며 법적 효력이 없습니다. 최종 표시사항은 규정 원문과 담당자 검토로 확정하세요.</footer>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+(function(){
+  if (window.pdfjsLib){ try{ pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"; }catch(e){} }
+  var EXAMPLE="제품명: 가붓 혈당컷 헬스티\n식품유형: 침출차\n원재료명: 여주추출분말, 바나바잎, 돼지감자, 계피\n내용량: 250g (5g x 50포)\n광고 문구: 혈당을 잡아주는 착한 차! 당뇨 걱정 끝. 마시기만 해도 살이 빠져요. 100% 국내산. 무방부제.";
+  var txt=document.getElementById('txt'),out=document.getElementById('out'),go=document.getElementById('go');
+  var errBox=document.getElementById('errBox'),exTag=document.getElementById('exTag');
+  var tG=document.getElementById('tG'),tH=document.getElementById('tH');
+  var fileIn=document.getElementById('fileIn'),thumbs=document.getElementById('thumbs'),pdfInfo=document.getElementById('pdfInfo');
+  var kbline=document.getElementById('kbline'),refs=document.getElementById('refs'),refList=document.getElementById('refList');
+  var gate=document.getElementById('gate'),codeIn=document.getElementById('codeIn'),gateErr=document.getElementById('gateErr');
+  var ptype='일반식품', images=[], pdfText='', accessCode='';
+
+  try{ var s=localStorage.getItem('lc.txt'); if(s){txt.value=s;exTag.hidden=true;} else txt.value=EXAMPLE; }catch(e){txt.value=EXAMPLE;}
+  txt.addEventListener('input',function(){exTag.hidden=true;try{localStorage.setItem('lc.txt',txt.value);}catch(e){}});
+  tG.onclick=function(){ptype='일반식품';tG.classList.add('on');tH.classList.remove('on');};
+  tH.onclick=function(){ptype='건강기능식품';tH.classList.add('on');tG.classList.remove('on');};
+
+  function hdrs(extra){ var h=extra||{}; h['X-Access-Code']=accessCode; return h; }
+  async function tryCode(code){
+    var r=await fetch('/api/auth',{method:'POST',headers:{'X-Access-Code':code}});
+    return r.ok;
+  }
+  async function enter(code){
+    if(!code)return;
+    if(await tryCode(code)){
+      accessCode=code;
+      try{localStorage.setItem('lc.code',code);}catch(e){}
+      gate.style.display='none';
+      loadStatus();
+    }else{
+      gateErr.textContent='코드가 올바르지 않습니다.';
+      try{localStorage.removeItem('lc.code');}catch(e){}
+    }
+  }
+  document.getElementById('codeGo').onclick=function(){enter(codeIn.value.trim());};
+  codeIn.addEventListener('keydown',function(e){if(e.key==='Enter')enter(codeIn.value.trim());});
+  try{ var saved=localStorage.getItem('lc.code'); if(saved){enter(saved);} }catch(e){}
+
+  function loadStatus(){
+    fetch('/api/status',{headers:hdrs()}).then(function(r){return r.json();}).then(function(s){
+      kbline.innerHTML='지식베이스: <b>'+s.kb+'개 조문·항목</b> (식품표시광고법 · 표시기준 · 건기식 표시기준 · 부당광고 기준) · 동기화 '+esc(s.updated||'');
+    }).catch(function(){kbline.textContent='상태 확인 실패';});
+  }
+
+  function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+  function inline(s){s=s.replace(/\*\*(.+?)\*\*/g,'<b>$1</b>');s=s.replace(/\[(높음)\]/g,'<span class="badge b-hi">높음</span>');s=s.replace(/\[(중간)\]/g,'<span class="badge b-mid">중간</span>');s=s.replace(/\[(낮음)\]/g,'<span class="badge b-low">낮음</span>');return s;}
+  function render(md){
+    var lines=esc(md).split('\n'),html='',inList=false;
+    for(var i=0;i<lines.length;i++){var L=lines[i],isLi=/^\s*[-*]\s+/.test(L);
+      if(inList&&!isLi){html+='</ul>';inList=false;}
+      if(/^###?\s+/.test(L)){html+='<h2>'+L.replace(/^###?\s+/,'')+'</h2>';continue;}
+      if(isLi){if(!inList){html+='<ul>';inList=true;}html+='<li>'+inline(L.replace(/^\s*[-*]\s+/,''))+'</li>';continue;}
+      if(L.trim()===''){continue;}
+      html+='<p>'+inline(L)+'</p>';}
+    if(inList)html+='</ul>';
+    return html;
+  }
+
+  function shrink(imgOrCanvas,name){
+    return new Promise(function(res){
+      var w=imgOrCanvas.naturalWidth||imgOrCanvas.width,h=imgOrCanvas.naturalHeight||imgOrCanvas.height;
+      var scale=Math.min(1,1100/Math.max(w,h));
+      var cv=document.createElement('canvas');cv.width=Math.round(w*scale);cv.height=Math.round(h*scale);
+      cv.getContext('2d').drawImage(imgOrCanvas,0,0,cv.width,cv.height);
+      var durl=cv.toDataURL('image/jpeg',0.8);
+      var im=document.createElement('img');im.alt=name;im.src=durl;thumbs.appendChild(im);
+      res(durl);
+    });
+  }
+  async function handlePdf(f){
+    if(!window.pdfjsLib){pdfInfo.hidden=false;pdfInfo.textContent='PDF 처리를 위해 인터넷 연결이 필요합니다.';return;}
+    try{
+      var buf=await f.arrayBuffer();
+      var doc=await pdfjsLib.getDocument({data:buf}).promise;
+      var maxP=Math.min(doc.numPages,4),texts=[];
+      for(var p=1;p<=maxP;p++){
+        var page=await doc.getPage(p);
+        try{var tc=await page.getTextContent();texts.push(tc.items.map(function(it){return it.str;}).join(' '));}catch(e){}
+        var vp=page.getViewport({scale:1.5});
+        var cv=document.createElement('canvas');cv.width=vp.width;cv.height=vp.height;
+        await page.render({canvasContext:cv.getContext('2d'),viewport:vp}).promise;
+        images.push(await shrink(cv,f.name+' p'+p));
+      }
+      var joined=texts.join('\n').replace(/\s{2,}/g,' ').trim();
+      if(joined.length>30)pdfText+='\n[PDF 추출 텍스트: '+f.name+']\n'+joined.slice(0,3000);
+      pdfInfo.hidden=false;
+      pdfInfo.textContent='PDF '+f.name+' — '+maxP+'페이지 변환'+(joined.length>30?' + 텍스트 추출':' (스캔본)')+(doc.numPages>4?' (최대 4쪽)':'');
+    }catch(e){pdfInfo.hidden=false;pdfInfo.textContent='PDF 변환 실패: '+f.name;}
+  }
+  fileIn.addEventListener('change',async function(){
+    thumbs.innerHTML='';pdfInfo.hidden=true;images=[];pdfText='';
+    var fs=fileIn.files||[];
+    for(var i=0;i<fs.length;i++){
+      var f=fs[i];
+      if(f.type==='application/pdf'||/\.pdf$/i.test(f.name)){await handlePdf(f);}
+      else if(/^image\//.test(f.type)){
+        await new Promise(function(res){
+          var im=new Image();im.onload=async function(){images.push(await shrink(im,f.name));res();};
+          im.onerror=res;im.src=URL.createObjectURL(f);
+        });
+      }
+    }
+    if(images.length>6){images=images.slice(0,6);}
+  });
+
+  var RULES=[
+    [/치료|치유|완치/,'높음','질병 치료 효능 표방 우려 (법 제8조제1항)'],
+    [/(당뇨|고혈압|항암|염증|아토피|관절염|치매)/,'높음','질병명 직접 언급 — 예방·치료 효능 오인 우려'],
+    [/혈당(을|이)?\s*(낮|잡|내리|떨어)/,'높음','혈당 저하 효능 표방 — 일반식품 불가'],
+    [/(면역력|면역)\s*(증진|강화|높)/,'높음','일반식품의 기능성 표방 (건기식 오인)'],
+    [/살이\s*빠|체중\s*감량/,'높음','체중 감량 효과 보장 표현'],
+    [/디톡스|해독/,'중간','과학적 근거 불명확 용어'],
+    [/무\s*방부제|방부제\s*무첨가|무\s*MSG|MSG\s*무첨가/,'높음','부당광고기준 제2조3호사목 — 무첨가 표기 금지'],
+    [/100\s*%/,'중간','부당광고기준 제2조3호카목 — 조건 미충족 시 금지'],
+    [/천연|자연\s*그대로/,'중간','부당광고기준 제2조3호차목 — 조건 미충족 시 금지'],
+    [/최초|최고|1\s*위|유일/,'중간','객관적 입증자료 없으면 과장광고'],
+    [/슈퍼푸드/,'중간','부당광고기준 명시 — 정의 불명확 용어'],
+    [/의사|약사|전문의/,'중간','전문가 보증 오인 표현'],
+    [/숙취\s*해소/,'중간','실증자료 갖춘 경우만 제한적 허용'],
+    [/부작용\s*(없|제로)/,'높음','절대적 안전성 보장 표현']
+  ];
+  function prescan(text){
+    var box=document.getElementById('prescan'),list=document.getElementById('prescanList');
+    list.innerHTML='';var hits=0;
+    RULES.forEach(function(r){
+      var m=text.match(r[0]);
+      if(m){hits++;var li=document.createElement('li');li.style.cssText='font-size:12.5px;margin:3px 0;';
+        li.innerHTML='<span class="badge '+(r[1]==='높음'?'b-hi':'b-mid')+'">'+r[1]+'</span>"'+esc(m[0])+'" — '+esc(r[2]);list.appendChild(li);}
+    });
+    if(!hits){var li=document.createElement('li');li.style.cssText='font-size:12.5px;color:var(--sub);';li.textContent='금칙어 사전에서 걸린 표현 없음 — AI 검수 결과를 확인하세요.';list.appendChild(li);}
+    box.hidden=false;
+  }
+
+  go.onclick=async function(){
+    if(!txt.value.trim()){txt.focus();return;}
+    errBox.hidden=true;refs.hidden=true;refList.innerHTML='';
+    prescan(txt.value+'\n'+pdfText);
+    go.disabled=true;
+    out.innerHTML='<p class="thinking">규정 조문과 대조해 검수하는 중입니다… (10~40초)</p>';
+    try{
+      var r=await fetch('/api/check',{method:'POST',
+        headers:hdrs({'Content-Type':'application/json'}),
+        body:JSON.stringify({ptype:ptype,text:txt.value,pdftext:pdfText,images:images,precise:document.getElementById('precise').checked,suggest:document.getElementById('suggest').checked})});
+      if(!r.ok || !r.body){
+        var d={}; try{d=await r.json();}catch(e){}
+        out.innerHTML='<p class="placeholder">검수를 완료하지 못했습니다.</p>';
+        errBox.textContent=d.message||('오류가 발생했습니다 ('+r.status+').');errBox.hidden=false;
+        if(r.status===401){gate.style.display='flex';}
+        return;
+      }
+      // 첫 줄 META(참조 조문) + 이어지는 SSE 스트림 파싱
+      var reader=r.body.getReader(),dec=new TextDecoder(),buf='',acc='',metaDone=false;
+      while(true){
+        var chunk=await reader.read();
+        if(chunk.done)break;
+        buf+=dec.decode(chunk.value,{stream:true});
+        if(!metaDone){
+          var nl=buf.indexOf('\n');
+          if(nl<0)continue;
+          var metaLine=buf.slice(0,nl);buf=buf.slice(nl+1);metaDone=true;
+          try{
+            var meta=JSON.parse(metaLine.replace(/^META:/,''));
+            (meta.refs||[]).forEach(function(c){var li=document.createElement('li');
+              li.innerHTML='<span class="srcbadge'+(c.kind==='요약'?' sum':'')+'">'+(c.kind==='요약'?'요약':'원문')+'</span>'+esc(c.title);refList.appendChild(li);});
+            if(meta.refs&&meta.refs.length)refs.hidden=false;
+          }catch(e){}
+        }
+        var lines=buf.split('\n');buf=lines.pop();
+        for(var i=0;i<lines.length;i++){
+          var L=lines[i].trim();
+          if(L.indexOf('data:')!==0)continue;
+          try{
+            var ev=JSON.parse(L.slice(5));
+            if(ev.type==='content_block_delta'&&ev.delta&&ev.delta.type==='text_delta'){
+              acc+=ev.delta.text;out.innerHTML=render(acc);
+            }
+            if(ev.type==='error'){errBox.textContent='AI 오류: '+(ev.error&&ev.error.message||'');errBox.hidden=false;}
+          }catch(e){}
+        }
+      }
+      if(acc)out.innerHTML=render(acc);
+      else{out.innerHTML='<p class="placeholder">응답을 받지 못했습니다. 다시 시도해주세요.</p>';}
+    }catch(e){
+      out.innerHTML='<p class="placeholder">검수를 완료하지 못했습니다.</p>';
+      errBox.textContent='연결 오류 — 인터넷 연결을 확인하세요.';errBox.hidden=false;
+    }finally{go.disabled=false;}
+  };
+})();
+</script>
+</body>
+</html>
