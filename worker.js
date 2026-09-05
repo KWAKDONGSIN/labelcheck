@@ -244,6 +244,36 @@ export default {
       return json({ ok: true });
     }
 
+    // OCR - 첨부 이미지 속 문구를 그대로 옮겨 적어 반환 (클로드 비전 사용)
+    if (request.method === "POST" && url.pathname === "/api/ocr") {
+      if (!authorized(request, env)) return json({ error: "auth", message: "접속 코드가 올바르지 않습니다." }, 401);
+      if (!env.ANTHROPIC_API_KEY) return json({ error: "no_key" }, 500);
+      let body;
+      try { body = await request.json(); } catch (e) { return json({ error: "bad_request" }, 400); }
+      const images = (body.images || []).slice(0, 8);
+      if (!images.length) return json({ error: "no_image", message: "이미지가 없습니다." }, 400);
+      const content = [];
+      for (const durl of images) {
+        const m = /^data:(image\/(?:png|jpeg|webp|gif));base64,(.+)$/s.exec(durl);
+        if (m) content.push({ type: "image", source: { type: "base64", media_type: m[1], data: m[2] } });
+      }
+      content.push({ type: "text", text: "이미지(패키지·라벨·문서)에 보이는 모든 문구를 위에서 아래, 왼쪽에서 오른쪽 순서로 그대로 옮겨 적어라(전사). 표시사항 항목(제품명, 원재료명 등)이 구분되면 항목별로 줄을 나눠라. 흐릿해서 확신이 없는 글자는 그대로 적되 뒤에 (?)를 붙여라. 설명·해석·머리말 없이 옮겨 적은 텍스트만 출력하라." });
+      const upstream = await relayFetch(env,
+        "https://gateway.ai.cloudflare.com/v1/b24a7a0550fd3f7e512be74ed4affa7a/labelcheck/anthropic/v1/messages",
+        { "x-api-key": env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+        JSON.stringify({ model: env.MODEL || "claude-haiku-4-5", max_tokens: 2500, messages: [{ role: "user", content }] }));
+      if (!upstream.ok) {
+        const status = upstream.status;
+        let detail = "";
+        try { detail = (await upstream.text()).slice(0, 200); } catch (e) {}
+        if (status === 403 && detail.includes("forbidden")) return json({ error: "region_retry", message: "경유지 문제 - 재시도 필요" }, 503);
+        return json({ error: "api", message: "글자 읽기 실패 (" + status + "). 잠시 후 다시 시도하세요." }, 502);
+      }
+      const res = await upstream.json();
+      const text = (res.content || []).filter((b) => b.type === "text").map((b) => b.text).join("\n");
+      return json({ text });
+    }
+
     if (request.method === "POST" && url.pathname === "/api/check") {
       if (!authorized(request, env)) return json({ error: "auth", message: "접속 코드가 올바르지 않습니다." }, 401);
       if (!env.ANTHROPIC_API_KEY) return json({ error: "no_key", message: "서버에 API 키가 설정되지 않았습니다." }, 500);
