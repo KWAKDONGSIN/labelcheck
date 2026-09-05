@@ -462,7 +462,26 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs
       if(f.type==='application/pdf'||/\.(pdf|ai)$/i.test(f.name)){await handlePdf(f);}
       else if(/^image\//.test(f.type)){
         await new Promise(function(res){
-          var im=new Image();im.onload=async function(){images.push(await shrink(im,f.name));res();};
+          var im=new Image();
+          im.onload=async function(){
+            var w=im.naturalWidth,h=im.naturalHeight;
+            if(Math.min(w,h)>2000){
+              // 대형 시안(패키지 펼침면 등)은 4분할로 판독 해상도 확보 (10% 겹침)
+              var cv=document.createElement('canvas');cv.width=w;cv.height=h;
+              cv.getContext('2d').drawImage(im,0,0);
+              var xs=[[0,Math.round(w*0.55)],[Math.round(w*0.45),w]];
+              var ys=[[0,Math.round(h*0.55)],[Math.round(h*0.45),h]];
+              for(var yi=0;yi<2;yi++)for(var xi=0;xi<2;xi++){
+                var x0=xs[xi][0],x1=xs[xi][1],y0=ys[yi][0],y1=ys[yi][1];
+                var q=document.createElement('canvas');q.width=x1-x0;q.height=y1-y0;
+                q.getContext('2d').drawImage(cv,x0,y0,x1-x0,y1-y0,0,0,x1-x0,y1-y0);
+                images.push(await shrink(q,f.name+' '+(yi*2+xi+1)+'/4'));
+              }
+            }else{
+              images.push(await shrink(im,f.name));
+            }
+            res();
+          };
           im.onerror=res;im.src=URL.createObjectURL(f);
         });
       }
