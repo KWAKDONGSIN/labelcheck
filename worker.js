@@ -1,5 +1,6 @@
 // 식품 표시·광고 규정 검수 웹서비스 - Cloudflare Worker (규정 지식베이스 + Claude API 스트리밍)
 import { INDEX, CHUNKS } from "./kb.js";
+import { EXPORT_CHUNKS } from "./exportkb.js";
 import UI_HTML from "./ui.html";
 
 const BASE_IDS = ["L1-8", "L1-8_2", "L4-2-1", "L4-2-2", "L4-2-3", "L4-2-4", "C-case"];
@@ -69,6 +70,43 @@ function buildPrompt(ptype, text, pdftext, picked, hasImages, suggest) {
   return parts.join("\n");
 }
 
+function buildExportPrompt(country, text, pdftext, hasImages, suggest) {
+  const chunks = EXPORT_CHUNKS[country] || [];
+  const ref = chunks.map((c) => "[참고: " + c.title + "]\n" + c.text).join("\n\n");
+  const nation = country === "수출(미국)" ? "미국(FDA)" : "일본(식품표시기준)";
+  const lang = country === "수출(미국)" ? "영어" : "일본어";
+  const parts = [
+    "너는 한국 식품의 " + nation + " 수출용 표시(라벨) 사전 점검 전문가다. 아래 [참고 자료]와 너의 지식을 근거로, 이 제품을 " + nation + " 시장에 수출한다고 가정하고 라벨 문구를 검수하라.",
+    "",
+    "[참고 자료 - 핵심 요약이며 규정 원문이 아니다. 원문 확인이 필요한 판단에는 반드시 '원문 확인 필요'를 붙여라]",
+    ref,
+    "",
+    "[검수 대상 문구 - 한국어 라벨이거나 현지어 초안일 수 있다]",
+    text.slice(0, 5000),
+    pdftext ? pdftext.slice(0, 3000) : "",
+    hasImages ? "\n(첨부된 패키지 이미지·PDF 페이지의 문구와 표시면도 함께 검수하라)" : "",
+    "",
+    "[출력 형식 - 반드시 이 마크다운 구조로]",
+    "## 종합 판정",
+    "(한두 문장. " + nation + " 기준 위험 수준과 가장 큰 문제)",
+    "## 부적합·위험 표시",
+    '- [높음] "문구" — ' + nation + " 기준 위반·부적합 사유. 근거: (참고 자료 또는 일반 지식, 지식이면 '원문 확인 필요' 병기). 수정 방향: ~",
+    "- [중간]/[낮음] 같은 형식. 한국 라벨을 그대로 쓸 수 없는 항목(알레르겐 목록 차이, 영양성분표 형식 차이 등)도 여기서 짚어라.",
+    "## 누락 의심 필수 표시사항",
+    "- " + nation + " 필수 항목 중 제공된 내용에서 확인되지 않는 것 (실물에 있다면 무시)",
+    "## 오타·표기 오류",
+    "- " + lang + " 표기의 철자·용어 오류, 잘못된 현지 명칭 (제공된 문구에 현지어가 없으면 '현지어 문안 없음 — 번역 라벨 작성 필요'라고 써라)",
+    suggest
+      ? "## 수정 문안 제안\n- 항목별로 " + lang + " 표시 문안 예시를 제안하라 (예: 알레르겐 문장, 내용량 표기, 원산국 표기). 제공된 광고 문구가 있으면 현지 규제에 맞는 " + lang + " 대체 문구도 제안하라.\n### 현지 라벨 표시 초안\n(필수 표시사항을 " + lang + "로 정리한 일괄 표시 초안을 제시하라. 확인 불가한 항목은 [확인 필요]로 남겨라.)"
+      : "",
+    "## 다음 단계",
+    "(수출 전 반드시 해야 할 확인 1~3개 - 예: 현지 수입자 검토, 첨가물 허용 여부 확인)",
+    "",
+    "[규칙] 참고 자료는 요약이므로 세부 수치·조항은 단정하지 말고 '원문 확인 필요'를 붙여라. 조항 번호를 지어내지 말라. 이 검수는 참고용 사전 점검이며 최종 라벨은 현지 수입자와 전문가 검토로 확정해야 함을 다음 단계에서 상기시켜라.",
+  ];
+  return parts.join("\n");
+}
+
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
@@ -91,6 +129,18 @@ export default {
 
     if (request.method === "POST" && url.pathname === "/api/auth") {
       return json({ ok: authorized(request, env) }, authorized(request, env) ? 200 : 401);
+    }
+
+    if (request.method === "GET" && url.pathname === "/api/diag") {
+      if (!authorized(request, env)) return json({ error: "auth" }, 401);
+      const up = await fetch("https://gateway.ai.cloudflare.com/v1/b24a7a0550fd3f7e512be74ed4affa7a/labelcheck/anthropic/v1/messages", {
+        method: "POST",
+        headers: { "x-api-key": env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+        body: JSON.stringify({ model: "claude-haiku-4-5", max_tokens: 5, messages: [{ role: "user", content: "hi" }] }),
+      });
+      let detail = "";
+      try { detail = (await up.text()).slice(0, 120); } catch (e) {}
+      return json({ colo: request.cf && request.cf.colo, upstream: up.status, detail });
     }
 
     if (request.method === "GET" && url.pathname === "/api/status") {
@@ -117,8 +167,11 @@ export default {
       const pdftext = body.pdftext || "";
       const images = (body.images || []).slice(0, 6);
       const suggest = !!body.suggest;
-      const picked = pickChunks(text + " " + pdftext + " " + ptype, ptype);
-      const prompt = buildPrompt(ptype, text, pdftext, picked, images.length > 0, suggest);
+      const isExport = !!EXPORT_CHUNKS[ptype];
+      const picked = isExport ? [] : pickChunks(text + " " + pdftext + " " + ptype, ptype);
+      const prompt = isExport
+        ? buildExportPrompt(ptype, text, pdftext, images.length > 0, suggest)
+        : buildPrompt(ptype, text, pdftext, picked, images.length > 0, suggest);
 
       const content = [];
       for (const durl of images) {
@@ -148,6 +201,10 @@ export default {
         const status = upstream.status;
         let detail = "";
         try { detail = (await upstream.text()).slice(0, 300); } catch (e) {}
+        // 홍콩 등 미지원 경유지에서 실행된 경우 - 클라이언트가 재요청하면 경유지가 바뀐다
+        if (status === 403 && detail.includes("forbidden")) {
+          return json({ error: "region_retry", message: "해외 경유지 문제 - 자동 재시도 중입니다." }, 503);
+        }
         let msg = "API 오류 (" + status + "). 잠시 후 다시 시도하세요." + (detail ? " [" + detail + "]" : "");
         if (status === 401) msg = "서버의 API 키가 올바르지 않습니다. 관리자에게 문의하세요.";
         if (status === 429) msg = "요청이 많거나 사용 한도에 도달했습니다. 잠시 후 다시 시도하세요.";
@@ -156,12 +213,14 @@ export default {
       }
 
       // 참조 조문 목록을 첫 줄(JSON)로 보내고, 이어서 업스트림 SSE를 그대로 통과시킨다
-      const refs = picked
-        .map((it) => {
-          const c = CHUNKS[it.id];
-          return c ? { title: c.title, kind: c.kind || "원문" } : null;
-        })
-        .filter(Boolean);
+      const refs = isExport
+        ? (EXPORT_CHUNKS[ptype] || []).map((c) => ({ title: c.title, kind: c.kind }))
+        : picked
+            .map((it) => {
+              const c = CHUNKS[it.id];
+              return c ? { title: c.title, kind: c.kind || "원문" } : null;
+            })
+            .filter(Boolean);
       const header = new TextEncoder().encode("META:" + JSON.stringify({ refs, model }) + "\n");
       const upstreamReader = upstream.body.getReader();
       const readable = new ReadableStream({

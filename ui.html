@@ -4,7 +4,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>라벨체크</title>
+<title>더가득 라벨체크</title>
 <style>
 :root{--paper:#FAFAF6;--card:#FFF;--ink:#2A2E28;--sub:#6B7065;--line:#DAD9CE;--accent:#4C7A57;--accent-ink:#FFF;--accent-soft:#EAF1EB;--hi:#B03A2E;--hi-bg:#F9ECEA;--mid:#8A6413;--mid-bg:#F7EFDC;--low:#3E6B49;--low-bg:#E8F0E9;--mono:#EFEEE6;}
 body{background:var(--paper);color:var(--ink);font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif;margin:0;line-height:1.65;}
@@ -61,7 +61,7 @@ details.refs li{font-size:12px;color:var(--sub);margin:4px 0;}
 <body>
 <div id="gate">
   <div class="box">
-    <h2>라벨체크</h2>
+    <h2>더가득 라벨체크</h2>
     <p>식품 표시·광고 규정 검수 도구입니다.<br>안내받은 접속 코드를 입력하세요.</p>
     <input id="codeIn" type="password" placeholder="접속 코드" autocomplete="off">
     <button id="codeGo" type="button">입장</button>
@@ -69,12 +69,14 @@ details.refs li{font-size:12px;color:var(--sub);margin:4px 0;}
   </div>
 </div>
 <div class="wrap">
-  <header class="top"><h1>라벨체크</h1><span class="tag">식품 표시사항 · 광고 문구 규정 검수</span></header>
+  <header class="top"><h1>더가득 라벨체크</h1><span class="tag">식품 표시사항 · 광고 문구 규정 검수 · 수출 라벨 점검</span></header>
   <p class="kbline" id="kbline">지식베이스 확인 중…</p>
   <div class="cols">
     <section class="panel">
-      <span class="lbl">제품 유형</span>
+      <span class="lbl">검수 기준</span>
       <div class="seg"><button id="tG" class="on" type="button">일반식품</button><button id="tH" type="button">건강기능식품</button></div>
+      <div class="seg" style="margin-top:8px;"><button id="tU" type="button">수출 · 미국 FDA</button><button id="tJ" type="button">수출 · 일본</button></div>
+      <div class="hint" id="exportHint" hidden>수출 검수는 핵심 요약 자료 기반의 참고용 사전 점검입니다. 최종 라벨은 현지 수입자·전문가 검토로 확정하세요.</div>
       <span class="lbl">패키지·상세페이지 문구 <span class="exlabel" id="exTag">예시</span></span>
       <textarea id="txt" spellcheck="false"></textarea>
       <div class="hint">제품명, 원재료명, 광고 문구를 그대로 붙여넣으세요. 일부만 넣어도 됩니다.</div>
@@ -99,7 +101,7 @@ details.refs li{font-size:12px;color:var(--sub);margin:4px 0;}
 <script>
 (function(){
   if (window.pdfjsLib){ try{ pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"; }catch(e){} }
-  var EXAMPLE="제품명: 가붓 혈당컷 헬스티\n식품유형: 침출차\n원재료명: 여주추출분말, 바나바잎, 돼지감자, 계피\n내용량: 250g (5g x 50포)\n광고 문구: 혈당을 잡아주는 착한 차! 당뇨 걱정 끝. 마시기만 해도 살이 빠져요. 100% 국내산. 무방부제.";
+  var EXAMPLE="제품명: 맑은아침 도라지배차\n식품유형: 액상차\n원재료명: 배농축액, 도라지추출액, 대추, 생강\n내용량: 1,000ml\n광고 문구: 기침·가래에 특효! 감기 예방에 좋은 차. 마시면 면역력이 쑥쑥. 100% 국내산. 무설탕, 무방부제.";
   var txt=document.getElementById('txt'),out=document.getElementById('out'),go=document.getElementById('go');
   var errBox=document.getElementById('errBox'),exTag=document.getElementById('exTag');
   var tG=document.getElementById('tG'),tH=document.getElementById('tH');
@@ -110,8 +112,17 @@ details.refs li{font-size:12px;color:var(--sub);margin:4px 0;}
 
   try{ var s=localStorage.getItem('lc.txt'); if(s){txt.value=s;exTag.hidden=true;} else txt.value=EXAMPLE; }catch(e){txt.value=EXAMPLE;}
   txt.addEventListener('input',function(){exTag.hidden=true;try{localStorage.setItem('lc.txt',txt.value);}catch(e){}});
-  tG.onclick=function(){ptype='일반식품';tG.classList.add('on');tH.classList.remove('on');};
-  tH.onclick=function(){ptype='건강기능식품';tH.classList.add('on');tG.classList.remove('on');};
+  var tU=document.getElementById('tU'),tJ=document.getElementById('tJ'),exportHint=document.getElementById('exportHint');
+  function setType(t,btn){
+    ptype=t;
+    [tG,tH,tU,tJ].forEach(function(b){b.classList.remove('on');});
+    btn.classList.add('on');
+    exportHint.hidden=(t.indexOf('수출')!==0);
+  }
+  tG.onclick=function(){setType('일반식품',tG);};
+  tH.onclick=function(){setType('건강기능식품',tH);};
+  tU.onclick=function(){setType('수출(미국)',tU);};
+  tJ.onclick=function(){setType('수출(일본)',tJ);};
 
   function hdrs(extra){ var h=extra||{}; h['X-Access-Code']=accessCode; return h; }
   async function tryCode(code){
@@ -236,13 +247,23 @@ details.refs li{font-size:12px;color:var(--sub);margin:4px 0;}
     go.disabled=true;
     out.innerHTML='<p class="thinking">규정 조문과 대조해 검수하는 중입니다… (10~40초)</p>';
     try{
-      var r=await fetch('/api/check',{method:'POST',
-        headers:hdrs({'Content-Type':'application/json'}),
-        body:JSON.stringify({ptype:ptype,text:txt.value,pdftext:pdfText,images:images,precise:document.getElementById('precise').checked,suggest:document.getElementById('suggest').checked})});
+      var r=null, payload=JSON.stringify({ptype:ptype,text:txt.value,pdftext:pdfText,images:images,precise:document.getElementById('precise').checked,suggest:document.getElementById('suggest').checked});
+      for(var attempt=1;attempt<=8;attempt++){
+        r=await fetch('/api/check',{method:'POST',headers:hdrs({'Content-Type':'application/json'}),body:payload});
+        if(r.status===503||r.status===502){
+          var rd={}; try{rd=await r.json();}catch(e){}
+          if(rd.error==='region_retry'||(rd.message&&rd.message.indexOf('(403')>=0)){
+            out.innerHTML='<p class="thinking">해외 경유지 우회 재시도 중… ('+attempt+'/8)</p>';
+            await new Promise(function(res){setTimeout(res,700);});
+            continue;
+          }
+        }
+        break;
+      }
       if(!r.ok || !r.body){
         var d={}; try{d=await r.json();}catch(e){}
         out.innerHTML='<p class="placeholder">검수를 완료하지 못했습니다.</p>';
-        errBox.textContent=d.message||('오류가 발생했습니다 ('+r.status+').');errBox.hidden=false;
+        errBox.textContent=(d.error==='region_retry')?'해외 경유지 문제가 계속됩니다. 잠시 후 다시 눌러주세요.':(d.message||('오류가 발생했습니다 ('+r.status+').'));errBox.hidden=false;
         if(r.status===401){gate.style.display='flex';}
         return;
       }
