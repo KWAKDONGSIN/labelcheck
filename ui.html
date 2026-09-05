@@ -56,6 +56,19 @@ details.refs li{font-size:12px;color:var(--sub);margin:4px 0;}
 #gate input{width:100%;box-sizing:border-box;padding:11px;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:15px;text-align:center;letter-spacing:0.15em;}
 #gate button{width:100%;margin-top:12px;padding:11px;border:none;border-radius:8px;background:var(--accent);color:var(--accent-ink);font:inherit;font-size:14px;font-weight:700;cursor:pointer;}
 #gateErr{color:var(--hi);font-size:12.5px;margin-top:10px;min-height:16px;}
+.actrow{display:flex;gap:8px;margin-top:12px;padding-top:10px;border-top:1px dashed var(--line);}
+.actrow button{padding:8px 14px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font:inherit;font-size:12.5px;cursor:pointer;}
+.actrow button:hover{background:var(--accent-soft);}
+details.hist{margin-top:14px;border-top:1px dashed var(--line);padding-top:10px;}
+details.hist summary{font-size:12.5px;font-weight:700;color:var(--sub);cursor:pointer;}
+details.hist li{font-size:12px;margin:5px 0;cursor:pointer;color:var(--accent);list-style:none;}
+details.hist li:hover{text-decoration:underline;}
+details.hist ul{padding-left:4px;}
+@media print{
+  body *{visibility:hidden;}
+  .result,.result *{visibility:visible;}
+  .result{position:absolute;left:0;top:0;width:100%;}
+}
 </style>
 </head>
 <body>
@@ -89,10 +102,15 @@ details.refs li{font-size:12px;color:var(--sub);margin:4px 0;}
       <label class="chk"><input type="checkbox" id="precise"> 정밀 검수 (더 꼼꼼하지만 비용 약 2~5배)</label>
       <button class="go" id="go" type="button">검수하기</button>
       <div id="errBox" hidden class="err"></div>
+      <details class="hist" id="hist"><summary>최근 검수 이력</summary><ul id="histList"></ul></details>
     </section>
     <section class="panel">
       <div id="prescan" hidden><span class="lbl" style="margin-top:0;">즉시 감지 (규칙 기반 · 무료)</span><ul id="prescanList"></ul></div>
       <div class="result" id="out"><p class="placeholder">왼쪽에 문구를 넣고 <b>검수하기</b>를 누르면, 규정 원문과 대조해 위반 위험·오타·수정 문안을 짚어드립니다.</p></div>
+      <div class="actrow" id="actrow" hidden>
+        <button id="copyBtn" type="button">📋 결과 복사</button>
+        <button id="printBtn" type="button">🖨️ 인쇄 / PDF 저장</button>
+      </div>
       <details class="refs" id="refs" hidden><summary>이번 검수에 참조한 규정 조문</summary><ul id="refList"></ul></details>
     </section>
   </div>
@@ -109,7 +127,36 @@ details.refs li{font-size:12px;color:var(--sub);margin:4px 0;}
   var fileIn=document.getElementById('fileIn'),thumbs=document.getElementById('thumbs'),pdfInfo=document.getElementById('pdfInfo');
   var kbline=document.getElementById('kbline'),refs=document.getElementById('refs'),refList=document.getElementById('refList');
   var gate=document.getElementById('gate'),codeIn=document.getElementById('codeIn'),gateErr=document.getElementById('gateErr');
-  var ptype='일반식품', images=[], pdfText='', accessCode='';
+  var ptype='일반식품', images=[], pdfText='', accessCode='', lastResult='';
+
+  function loadHist(){ try{return JSON.parse(localStorage.getItem('lc.hist')||'[]');}catch(e){return [];} }
+  function saveHist(result){
+    try{
+      var h=loadHist();
+      var name=(txt.value.match(/제품명\s*[:：]\s*([^\n]{1,30})/)||[])[1]||txt.value.slice(0,25);
+      h.unshift({d:new Date().toLocaleString('ko-KR',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit'}),n:name.trim(),p:ptype,input:txt.value.slice(0,4000),r:result});
+      if(h.length>10)h=h.slice(0,10);
+      localStorage.setItem('lc.hist',JSON.stringify(h));
+      renderHist();
+    }catch(e){}
+  }
+  function renderHist(){
+    var h=loadHist(),ul=document.getElementById('histList');
+    ul.innerHTML='';
+    if(!h.length){ul.innerHTML='<li style="color:var(--sub);cursor:default;">아직 이력이 없습니다.</li>';return;}
+    h.forEach(function(item,i){
+      var li=document.createElement('li');
+      li.textContent=item.d+' · ['+item.p+'] '+item.n;
+      li.onclick=function(){
+        txt.value=item.input;exTag.hidden=true;
+        out.innerHTML=render(item.r);lastResult=item.r;
+        document.getElementById('actrow').hidden=false;
+        try{localStorage.setItem('lc.txt',item.input);}catch(e){}
+        window.scrollTo({top:0,behavior:'smooth'});
+      };
+      ul.appendChild(li);
+    });
+  }
 
   try{ var s=localStorage.getItem('lc.txt'); if(s){txt.value=s;exTag.hidden=true;} else txt.value=EXAMPLE; }catch(e){txt.value=EXAMPLE;}
   txt.addEventListener('input',function(){exTag.hidden=true;try{localStorage.setItem('lc.txt',txt.value);}catch(e){}});
@@ -145,6 +192,17 @@ details.refs li{font-size:12px;color:var(--sub);margin:4px 0;}
   document.getElementById('codeGo').onclick=function(){enter(codeIn.value.trim());};
   codeIn.addEventListener('keydown',function(e){if(e.key==='Enter')enter(codeIn.value.trim());});
   try{ var saved=localStorage.getItem('lc.code'); if(saved){enter(saved);} }catch(e){}
+
+  document.getElementById('copyBtn').onclick=function(){
+    if(!lastResult)return;
+    var plain=lastResult.replace(/^#+\s*/gm,'').replace(/\*\*/g,'');
+    (navigator.clipboard?navigator.clipboard.writeText(plain):Promise.reject()).then(function(){
+      document.getElementById('copyBtn').textContent='✅ 복사됨';
+      setTimeout(function(){document.getElementById('copyBtn').textContent='📋 결과 복사';},1500);
+    }).catch(function(){alert('복사 실패 - 결과를 드래그해서 복사해주세요.');});
+  };
+  document.getElementById('printBtn').onclick=function(){window.print();};
+  renderHist();
 
   function loadStatus(){
     fetch('/api/status',{headers:hdrs()}).then(function(r){return r.json();}).then(function(s){
@@ -249,13 +307,13 @@ details.refs li{font-size:12px;color:var(--sub);margin:4px 0;}
     out.innerHTML='<p class="thinking">규정 조문과 대조해 검수하는 중입니다… (10~40초)</p>';
     try{
       var r=null, payload=JSON.stringify({ptype:ptype,text:txt.value,pdftext:pdfText,images:images,precise:document.getElementById('precise').checked,suggest:document.getElementById('suggest').checked,compose:document.getElementById('compose').checked});
-      for(var attempt=1;attempt<=8;attempt++){
+      for(var attempt=1;attempt<=12;attempt++){
         r=await fetch('/api/check',{method:'POST',headers:hdrs({'Content-Type':'application/json'}),body:payload});
         if(r.status===503||r.status===502){
           var rd={}; try{rd=await r.json();}catch(e){}
           if(rd.error==='region_retry'||(rd.message&&rd.message.indexOf('(403')>=0)){
-            out.innerHTML='<p class="thinking">해외 경유지 우회 재시도 중… ('+attempt+'/8)</p>';
-            await new Promise(function(res){setTimeout(res,700);});
+            out.innerHTML='<p class="thinking">해외 경유지 우회 재시도 중… ('+attempt+'/12)</p>';
+            await new Promise(function(res){setTimeout(res,500+attempt*200);});
             continue;
           }
         }
@@ -298,7 +356,12 @@ details.refs li{font-size:12px;color:var(--sub);margin:4px 0;}
           }catch(e){}
         }
       }
-      if(acc)out.innerHTML=render(acc);
+      if(acc){
+        out.innerHTML=render(acc);
+        lastResult=acc;
+        document.getElementById('actrow').hidden=false;
+        saveHist(acc);
+      }
       else{out.innerHTML='<p class="placeholder">응답을 받지 못했습니다. 다시 시도해주세요.</p>';}
     }catch(e){
       out.innerHTML='<p class="placeholder">검수를 완료하지 못했습니다.</p>';
