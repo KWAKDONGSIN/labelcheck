@@ -178,13 +178,14 @@ function buildExcelPrompt(text, pdftext, hasImages) {
     "",
     "[자료]",
     text.slice(0, 6000),
-    pdftext ? pdftext.slice(0, 6000) : "",
+    pdftext ? pdftext.slice(0, 12000) : "",
     hasImages ? "(첨부된 이미지·PDF 페이지의 내용을 자료로 읽어서 사용하라)" : "",
     "",
     "[핵심 규칙 - 반드시 지켜라]",
     "1. 식품유형(식품의 유형)은 자료에 적힌 값을 한 글자도 바꾸지 말고 그대로 옮겨라. 예를 들어 자료가 '기타가공품'이면 정확히 '기타가공품'이다. 제품 성격을 보고 유형을 새로 분류·추측하는 것을 절대 금지한다. 자료에서 못 찾으면 [확인 필요: 식품유형]으로 써라.",
     "2. 자료에 없는 값은 지어내지 말고 [확인 필요: 무엇]으로 써라. 입력에 없는 제품 사실(원산지·함량·인증마크)을 새로 추가하지 말라.",
     "3. 원재료명 및 함량은 배합비율이 높은 순서대로 쓰고, 복합원재료(기타가공품[○○] 등)는 대괄호 안 명칭을 사용하라. 복합원재료의 세부 구성 원재료가 자료에 없으면 절대 추측해서 풀어 쓰지 말고 명칭 뒤에 [구성 확인 필요]를 붙여라. 알레르기 유발물질(우유·대두·밀 등 법정 목록)이 원재료에 있으면 알레르기 행에 '○○ 함유' 형식으로 써라.",
+    "5. 배합비율 표는 행을 요약·생략하지 말고 자료에 있는 모든 행을 빠짐없이 그대로 옮겨라(자료가 26행이면 출력도 26행). 품목제조보고번호(요청 번호 포함)는 자릿수까지 정확히 옮겨라.",
     "4. 소비기한이 기간형(제조일로부터 ○개월)이면 내용은 '별도 표기일까지 (제조일로부터 ○개월)'로 써라.",
     "",
     "[출력 형식 - 아래 구조만 출력하라. 코드블록(```) 금지, 각 블록은 반드시 [/EXCEL]로 닫아라]",
@@ -355,8 +356,28 @@ export default {
       const excelOnly = body.mode === "excel";
       const isExport = !excelOnly && !!EXPORT_CHUNKS[ptype];
       const picked = (isExport || excelOnly) ? [] : pickChunks(text + " " + pdftext + " " + ptype + (compose ? " 표시 원재료명 소비기한 내용량" : ""), ptype);
+      // 엑셀 모드에서 문서만 첨부된 경우: 정밀 모델로 먼저 전문 판독(OCR)한 뒤 그 텍스트를 자료로 합친다
+      let ocrDoc = "";
+      if (excelOnly && images.length && (text.length + pdftext.length) < 400) {
+        const ocrContent = [];
+        for (const durl of images) {
+          const m = /^data:(image\/(?:png|jpeg|webp|gif));base64,(.+)$/s.exec(durl);
+          if (m) ocrContent.push({ type: "image", source: { type: "base64", media_type: m[1], data: m[2] } });
+        }
+        ocrContent.push({ type: "text", text: "이것은 한국 식품 관련 서류(품목제조보고서·검사성적서 등)다. 보이는 모든 문구·표를 글자 그대로 빠짐없이 옮겨 적어라. 표는 행마다 | 로 구분하고 어떤 행도 생략하지 말라. 고유명사는 아는 단어로 바꾸지 말라. 설명 없이 전사 텍스트만 출력하라." });
+        try {
+          const ores = await relayFetch(env,
+            "https://gateway.ai.cloudflare.com/v1/b24a7a0550fd3f7e512be74ed4affa7a/labelcheck/anthropic/v1/messages",
+            { "x-api-key": env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+            JSON.stringify({ model: env.PRECISE_MODEL || "claude-sonnet-5", max_tokens: 4000, messages: [{ role: "user", content: ocrContent }] }));
+          if (ores.ok) {
+            const oj = await ores.json();
+            ocrDoc = (oj.content || []).filter((b) => b.type === "text").map((b) => b.text).join("\n");
+          }
+        } catch (e) {}
+      }
       const prompt = excelOnly
-        ? buildExcelPrompt(text, pdftext, images.length > 0)
+        ? buildExcelPrompt(text, (pdftext + (ocrDoc ? "\n[문서 정밀 판독 텍스트]\n" + ocrDoc : "")).slice(0, 12000), images.length > 0)
         : isExport
         ? buildExportPrompt(ptype, text, pdftext, images.length > 0, suggest)
         : buildPrompt(ptype, text, pdftext, picked, images.length > 0, suggest, compose);
@@ -408,7 +429,7 @@ export default {
               return c ? { title: c.title, kind: c.kind || "원문" } : null;
             })
             .filter(Boolean);
-      const header = new TextEncoder().encode("META:" + JSON.stringify({ refs, model }) + "\n");
+      const header = new TextEncoder().encode("META:" + JSON.stringify({ refs, model, ocr: excelOnly ? ocrDoc.length : undefined }) + "\n");
       const upstreamReader = upstream.body.getReader();
       const readable = new ReadableStream({
         start(controller) {
