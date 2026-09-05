@@ -3,6 +3,33 @@ import { INDEX, CHUNKS } from "./kb.js";
 import { EXPORT_CHUNKS } from "./exportkb.js";
 import UI_HTML from "./ui.html";
 
+// 위치 고정 중계기 - Anthropic 미지원 경유지(홍콩 등) 차단을 피하기 위해
+// 미국 동부에 상주하는 Durable Object가 업스트림 호출을 대신 수행한다
+export class Relay {
+  constructor(state, env) { this.env = env; }
+  async fetch(request) {
+    const target = request.headers.get("X-Relay-Target");
+    if (!target || !target.startsWith("https://gateway.ai.cloudflare.com/") && !target.startsWith("https://api.anthropic.com/")) {
+      return new Response("bad target", { status: 400 });
+    }
+    const headers = new Headers();
+    for (const h of ["x-api-key", "anthropic-version", "content-type"]) {
+      const v = request.headers.get(h);
+      if (v) headers.set(h, v);
+    }
+    return fetch(target, { method: "POST", headers, body: request.body });
+  }
+}
+
+async function relayFetch(env, target, headers, body) {
+  const stub = env.RELAY.get(env.RELAY.idFromName("relay-v1"), { locationHint: "enam" });
+  return stub.fetch("https://relay/", {
+    method: "POST",
+    headers: { ...headers, "X-Relay-Target": target },
+    body,
+  });
+}
+
 const BASE_IDS = ["L1-8", "L1-8_2", "L4-2-1", "L4-2-2", "L4-2-3", "L4-2-4", "C-case"];
 const HFF_BASE = ["C-hff1", "C-hff2", "L3-4", "L3-5-1"];
 
@@ -161,11 +188,10 @@ export default {
 
     if (request.method === "GET" && url.pathname === "/api/diag") {
       if (!authorized(request, env)) return json({ error: "auth" }, 401);
-      const up = await fetch("https://gateway.ai.cloudflare.com/v1/b24a7a0550fd3f7e512be74ed4affa7a/labelcheck/anthropic/v1/messages", {
-        method: "POST",
-        headers: { "x-api-key": env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-        body: JSON.stringify({ model: "claude-haiku-4-5", max_tokens: 5, messages: [{ role: "user", content: "hi" }] }),
-      });
+      const up = await relayFetch(env,
+        "https://gateway.ai.cloudflare.com/v1/b24a7a0550fd3f7e512be74ed4affa7a/labelcheck/anthropic/v1/messages",
+        { "x-api-key": env.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+        JSON.stringify({ model: "claude-haiku-4-5", max_tokens: 5, messages: [{ role: "user", content: "hi" }] }));
       let detail = "";
       try { detail = (await up.text()).slice(0, 120); } catch (e) {}
       return json({ colo: request.cf && request.cf.colo, upstream: up.status, detail });
@@ -248,21 +274,20 @@ export default {
       content.push({ type: "text", text: prompt });
 
       const model = body.precise ? (env.PRECISE_MODEL || "claude-sonnet-5") : (env.MODEL || "claude-haiku-4-5");
-      // Cloudflare AI Gateway 경유 (Workers 직접 호출은 일부 경유지에서 Anthropic이 403으로 차단)
-      const upstream = await fetch("https://gateway.ai.cloudflare.com/v1/b24a7a0550fd3f7e512be74ed4affa7a/labelcheck/anthropic/v1/messages", {
-        method: "POST",
-        headers: {
+      // 위치 고정 중계기(미국 동부) 경유 - 홍콩 등 미지원 경유지의 403 차단 회피
+      const upstream = await relayFetch(env,
+        "https://gateway.ai.cloudflare.com/v1/b24a7a0550fd3f7e512be74ed4affa7a/labelcheck/anthropic/v1/messages",
+        {
           "x-api-key": env.ANTHROPIC_API_KEY,
           "anthropic-version": "2023-06-01",
           "content-type": "application/json",
         },
-        body: JSON.stringify({
+        JSON.stringify({
           model,
           max_tokens: suggest ? 4000 : 3000,
           stream: true,
           messages: [{ role: "user", content }],
-        }),
-      });
+        }));
 
       if (!upstream.ok) {
         const status = upstream.status;

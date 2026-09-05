@@ -6,6 +6,14 @@ compatibility_date = "2026-09-01"
 binding = "HIST"
 id = "9e2c7d191e1b4ce3a3b6adbe103c9c1b"
 
+[[durable_objects.bindings]]
+name = "RELAY"
+class_name = "Relay"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["Relay"]
+
 [[rules]]
 type = "Text"
 globs = ["**/*.html"]
