@@ -80,10 +80,11 @@ details.refs li{font-size:12px;color:var(--sub);margin:4px 0;}
       <span class="lbl">패키지·상세페이지 문구 <span class="exlabel" id="exTag">예시</span></span>
       <textarea id="txt" spellcheck="false"></textarea>
       <div class="hint">제품명, 원재료명, 광고 문구를 그대로 붙여넣으세요. 일부만 넣어도 됩니다.</div>
-      <span class="lbl">패키지 이미지 · PDF (선택)</span>
-      <input type="file" id="fileIn" multiple accept="image/*,.pdf,application/pdf">
+      <span class="lbl">패키지 이미지 · PDF · AI 파일 (선택)</span>
+      <input type="file" id="fileIn" multiple accept="image/*,.pdf,application/pdf,.ai">
       <div class="thumbs" id="thumbs"></div>
       <div class="hint" id="pdfInfo" hidden></div>
+      <label class="chk"><input type="checkbox" id="compose"> 표기 문안 생성 (검수 대신, 품목제조보고서 등으로 표시사항 초안 작성)</label>
       <label class="chk"><input type="checkbox" id="suggest" checked> 수정 문안 추천 (위반 문구를 규정에 맞게 고친 대체 문안 제시)</label>
       <label class="chk"><input type="checkbox" id="precise"> 정밀 검수 (더 꼼꼼하지만 비용 약 2~5배)</label>
       <button class="go" id="go" type="button">검수하기</button>
@@ -168,7 +169,7 @@ details.refs li{font-size:12px;color:var(--sub);margin:4px 0;}
   function shrink(imgOrCanvas,name){
     return new Promise(function(res){
       var w=imgOrCanvas.naturalWidth||imgOrCanvas.width,h=imgOrCanvas.naturalHeight||imgOrCanvas.height;
-      var scale=Math.min(1,1100/Math.max(w,h));
+      var scale=Math.min(1,1400/Math.max(w,h));
       var cv=document.createElement('canvas');cv.width=Math.round(w*scale);cv.height=Math.round(h*scale);
       cv.getContext('2d').drawImage(imgOrCanvas,0,0,cv.width,cv.height);
       var durl=cv.toDataURL('image/jpeg',0.8);
@@ -181,7 +182,7 @@ details.refs li{font-size:12px;color:var(--sub);margin:4px 0;}
     try{
       var buf=await f.arrayBuffer();
       var doc=await pdfjsLib.getDocument({data:buf}).promise;
-      var maxP=Math.min(doc.numPages,4),texts=[];
+      var maxP=Math.min(doc.numPages,6),texts=[];
       for(var p=1;p<=maxP;p++){
         var page=await doc.getPage(p);
         try{var tc=await page.getTextContent();texts.push(tc.items.map(function(it){return it.str;}).join(' '));}catch(e){}
@@ -201,7 +202,7 @@ details.refs li{font-size:12px;color:var(--sub);margin:4px 0;}
     var fs=fileIn.files||[];
     for(var i=0;i<fs.length;i++){
       var f=fs[i];
-      if(f.type==='application/pdf'||/\.pdf$/i.test(f.name)){await handlePdf(f);}
+      if(f.type==='application/pdf'||/\.(pdf|ai)$/i.test(f.name)){await handlePdf(f);}
       else if(/^image\//.test(f.type)){
         await new Promise(function(res){
           var im=new Image();im.onload=async function(){images.push(await shrink(im,f.name));res();};
@@ -209,7 +210,7 @@ details.refs li{font-size:12px;color:var(--sub);margin:4px 0;}
         });
       }
     }
-    if(images.length>6){images=images.slice(0,6);}
+    if(images.length>8){images=images.slice(0,8);}
   });
 
   var RULES=[
@@ -247,7 +248,7 @@ details.refs li{font-size:12px;color:var(--sub);margin:4px 0;}
     go.disabled=true;
     out.innerHTML='<p class="thinking">규정 조문과 대조해 검수하는 중입니다… (10~40초)</p>';
     try{
-      var r=null, payload=JSON.stringify({ptype:ptype,text:txt.value,pdftext:pdfText,images:images,precise:document.getElementById('precise').checked,suggest:document.getElementById('suggest').checked});
+      var r=null, payload=JSON.stringify({ptype:ptype,text:txt.value,pdftext:pdfText,images:images,precise:document.getElementById('precise').checked,suggest:document.getElementById('suggest').checked,compose:document.getElementById('compose').checked});
       for(var attempt=1;attempt<=8;attempt++){
         r=await fetch('/api/check',{method:'POST',headers:hdrs({'Content-Type':'application/json'}),body:payload});
         if(r.status===503||r.status===502){

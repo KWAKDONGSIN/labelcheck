@@ -24,7 +24,7 @@ function pickChunks(text, ptype) {
   return scored.slice(0, 9).map((x) => x[1]);
 }
 
-function buildPrompt(ptype, text, pdftext, picked, hasImages, suggest) {
+function buildPrompt(ptype, text, pdftext, picked, hasImages, suggest, compose) {
   let ref = "";
   const budget = 14000;
   for (const it of picked) {
@@ -32,6 +32,33 @@ function buildPrompt(ptype, text, pdftext, picked, hasImages, suggest) {
     if (!c) continue;
     const piece = "[" + (c.kind === "요약" ? "요약: " : "원문: ") + c.title + "]\n" + c.text + "\n\n";
     if (ref.length + piece.length < budget) ref += piece;
+  }
+  if (compose) {
+    return [
+      "너는 한국 식품 표시사항(라벨) 문안 작성 전문가다. 아래 [규정 자료]를 근거로, 제공된 자료(품목제조보고서·제품 정보·이미지)에서 확인되는 정보로 패키지에 인쇄할 표시사항 문안 초안을 작성하라.",
+      "",
+      "제품 유형: " + ptype,
+      "",
+      ref ? "[규정 자료]\n" + ref : "",
+      "[제공된 제품 정보]",
+      text.slice(0, 5000),
+      pdftext ? pdftext.slice(0, 3000) : "",
+      hasImages ? "\n(첨부된 이미지·PDF의 내용도 정보로 활용하라)" : "",
+      "",
+      "[출력 형식 - 반드시 이 마크다운 구조로]",
+      "## 표시사항 문안 초안",
+      "(일괄표시면 형식으로: 제품명 / 식품유형 / 내용량 / 원재료명 / 소비기한 / 보관방법 / 포장재질 / 품목보고번호 / 제조원 / 판매원 / 섭취방법 등. 자료에 없는 값은 [확인 필요: 무엇]으로 표시)",
+      "## 의무 문구",
+      "(부정·불량식품 신고 1399, 소비자분쟁해결기준 교환·보상 문구, 반품·교환처 등 이 제품에 필요한 것)",
+      "## 확인 필요 항목",
+      "- 자료로 확정할 수 없어 담당자 확인이 필요한 항목과 그 이유",
+      "## 사용 금지·주의 표현",
+      "- 이 제품 유형에서 쓰면 위반이 되는 표현 (제공된 광고 문구가 있으면 그것도 판정)",
+      "## 다음 단계",
+      "(인쇄 전 확인 1~3개)",
+      "",
+      "[규칙] 규정 자료에 있는 내용은 그 조문을 근거로 하라. 자료에 없는 값을 지어내지 말고 [확인 필요]로 남겨라. 제품 유형에 따라 영양성분 표시 의무 여부를 판단해 언급하라.",
+    ].join("\n");
   }
   const parts = [
     "너는 한국 식품 표시·광고 규정 검수 전문가다. 아래 [규정 자료]의 원문·요약을 최우선 근거로 삼아 제품 문구를 검수하라.",
@@ -165,13 +192,14 @@ export default {
       const ptype = body.ptype || "일반식품";
       const text = body.text || "";
       const pdftext = body.pdftext || "";
-      const images = (body.images || []).slice(0, 6);
+      const images = (body.images || []).slice(0, 8);
       const suggest = !!body.suggest;
+      const compose = !!body.compose;
       const isExport = !!EXPORT_CHUNKS[ptype];
-      const picked = isExport ? [] : pickChunks(text + " " + pdftext + " " + ptype, ptype);
+      const picked = isExport ? [] : pickChunks(text + " " + pdftext + " " + ptype + (compose ? " 표시 원재료명 소비기한 내용량" : ""), ptype);
       const prompt = isExport
         ? buildExportPrompt(ptype, text, pdftext, images.length > 0, suggest)
-        : buildPrompt(ptype, text, pdftext, picked, images.length > 0, suggest);
+        : buildPrompt(ptype, text, pdftext, picked, images.length > 0, suggest, compose);
 
       const content = [];
       for (const durl of images) {
