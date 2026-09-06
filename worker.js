@@ -260,6 +260,16 @@ async function sendKakao(env, text) {
   } catch (e) { return false; }
 }
 
+// 일일 AI 호출 상한 - 접속 코드 유출 시 비용 폭주 방지 (KV 특성상 근사치)
+async function checkQuota(env) {
+  const day = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+  const uk = "u:" + day;
+  const cnt = parseInt((await env.HIST.get(uk)) || "0", 10);
+  if (cnt >= 150) return json({ error: "quota", message: "오늘 AI 사용 한도(150회)에 도달했습니다. 내일 다시 이용해주세요." }, 429);
+  await env.HIST.put(uk, String(cnt + 1), { expirationTtl: 172800 });
+  return null;
+}
+
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
@@ -332,13 +342,17 @@ export default {
     }
     if (url.pathname.startsWith("/api/hist/") && request.method === "GET") {
       if (!authorized(request, env)) return json({ error: "auth" }, 401);
-      const rec = await env.HIST.get(url.pathname.slice("/api/hist/".length));
+      const histId = decodeURIComponent(url.pathname.slice("/api/hist/".length));
+      if (!histId.startsWith("h:")) return json({ error: "bad_id" }, 400);
+      const rec = await env.HIST.get(histId);
       if (!rec) return json({ error: "not_found" }, 404);
       return new Response(rec, { headers: { "Content-Type": "application/json; charset=utf-8" } });
     }
     if (url.pathname.startsWith("/api/hist/") && request.method === "DELETE") {
       if (!authorized(request, env)) return json({ error: "auth" }, 401);
-      await env.HIST.delete(url.pathname.slice("/api/hist/".length));
+      const histDelId = decodeURIComponent(url.pathname.slice("/api/hist/".length));
+      if (!histDelId.startsWith("h:")) return json({ error: "bad_id" }, 400);
+      await env.HIST.delete(histDelId);
       return json({ ok: true });
     }
 
@@ -348,8 +362,10 @@ export default {
       if (!env.ANTHROPIC_API_KEY) return json({ error: "no_key" }, 500);
       let body;
       try { body = await request.json(); } catch (e) { return json({ error: "bad_request" }, 400); }
-      const images = (body.images || []).slice(0, 14);
+      const images = (Array.isArray(body.images) ? body.images : []).filter(function (x) { return typeof x === "string"; }).slice(0, 14);
       if (!images.length) return json({ error: "no_image", message: "이미지가 없습니다." }, 400);
+      const quota = await checkQuota(env);
+      if (quota) return quota;
       const content = [];
       for (const durl of images) {
         const m = /^data:(image\/(?:png|jpeg|webp|gif));base64,(.+)$/s.exec(durl);
@@ -377,14 +393,20 @@ export default {
     // 최초 1회: /api/kakao/start 에서 카카오 로그인 동의 → 토큰을 KV에 저장
     if (url.pathname === "/api/kakao/start" && request.method === "GET") {
       if (!env.KAKAO_REST_KEY) return json({ error: "no_kakao_key" }, 500);
+      if (url.searchParams.get("key") !== env.ACCESS_CODE) return new Response("접속 코드가 필요합니다: /api/kakao/start?key=접속코드", { status: 401 });
+      const state = crypto.randomUUID();
+      await env.HIST.put("s:" + state, "1", { expirationTtl: 600 });
       const redirect = url.origin + "/api/kakao/callback";
       const auth = "https://kauth.kakao.com/oauth/authorize?client_id=" + env.KAKAO_REST_KEY +
-        "&redirect_uri=" + encodeURIComponent(redirect) + "&response_type=code&scope=talk_message";
+        "&redirect_uri=" + encodeURIComponent(redirect) + "&response_type=code&scope=talk_message&state=" + state;
       return Response.redirect(auth, 302);
     }
     if (url.pathname === "/api/kakao/callback" && request.method === "GET") {
       const code = url.searchParams.get("code");
       if (!code) return new Response("인증 코드가 없습니다", { status: 400 });
+      const st = url.searchParams.get("state");
+      if (!st || !(await env.HIST.get("s:" + st))) return new Response("잘못된 인증 요청입니다 (state 불일치)", { status: 403 });
+      await env.HIST.delete("s:" + st);
       const redirect = url.origin + "/api/kakao/callback";
       const tr = await fetch("https://kauth.kakao.com/oauth/token", {
         method: "POST",
@@ -435,7 +457,7 @@ export default {
       try { body = await request.json(); } catch (e) { return json({ error: "bad_request" }, 400); }
       const name = String(body.n || "").trim().slice(0, 50);
       if (!name) return json({ error: "no_name", message: "문안 이름이 필요합니다." }, 400);
-      const id = "d:" + name.replace(/[\/\\]/g, " ");
+      const id = "d:" + name;
       const u = new Date().toLocaleString("ko-KR", { timeZone: "Asia/Seoul", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
       const rec = { n: name, text: String(body.text || "").slice(0, 20000), p: String(body.p || "일반식품").slice(0, 20), by: String(body.by || "").slice(0, 20), u };
       await env.HIST.put(id, JSON.stringify(rec), { metadata: { n: rec.n, u: rec.u, by: rec.by } });
@@ -443,13 +465,17 @@ export default {
     }
     if (url.pathname.startsWith("/api/draft/") && request.method === "GET") {
       if (!authorized(request, env)) return json({ error: "auth" }, 401);
-      const rec = await env.HIST.get(decodeURIComponent(url.pathname.slice("/api/draft/".length)));
+      const draftId = decodeURIComponent(url.pathname.slice("/api/draft/".length));
+      if (!draftId.startsWith("d:")) return json({ error: "bad_id" }, 400);
+      const rec = await env.HIST.get(draftId);
       if (!rec) return json({ error: "not_found" }, 404);
       return new Response(rec, { headers: { "Content-Type": "application/json; charset=utf-8" } });
     }
     if (url.pathname.startsWith("/api/draft/") && request.method === "DELETE") {
       if (!authorized(request, env)) return json({ error: "auth" }, 401);
-      await env.HIST.delete(decodeURIComponent(url.pathname.slice("/api/draft/".length)));
+      const draftDelId = decodeURIComponent(url.pathname.slice("/api/draft/".length));
+      if (!draftDelId.startsWith("d:")) return json({ error: "bad_id" }, 400);
+      await env.HIST.delete(draftDelId);
       return json({ ok: true });
     }
 
@@ -463,10 +489,13 @@ export default {
       } catch (e) {
         return json({ error: "bad_request" }, 400);
       }
-      const ptype = body.ptype || "일반식품";
-      const text = body.text || "";
-      const pdftext = body.pdftext || "";
-      const images = (body.images || []).slice(0, 14);
+      const ptype = String(body.ptype || "일반식품").slice(0, 20);
+      const text = String(body.text || "");
+      const pdftext = String(body.pdftext || "");
+      const images = (Array.isArray(body.images) ? body.images : []).filter(function (x) { return typeof x === "string"; }).slice(0, 14);
+      if (!text.trim() && !pdftext.trim() && !images.length) return json({ error: "empty", message: "검수할 문구나 이미지가 없습니다." }, 400);
+      const quota = await checkQuota(env);
+      if (quota) return quota;
       const suggest = !!body.suggest;
       const compose = !!body.compose;
       const excelOnly = body.mode === "excel";

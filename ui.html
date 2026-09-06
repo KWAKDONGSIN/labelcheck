@@ -170,6 +170,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs
     var g=function(name){return rows.filter(function(r){return r[0]===name;});};
     var main=g('주표시면'), care=g('주의사항'), store=g('보관방법');
     var info=rows.filter(function(r){return r[0]==='정보표시면'||r[0]==='영양정보';});
+    if(!info.length)info=[['정보표시면','안내','[정보표시면 데이터가 생성되지 않았습니다 - 다시 시도해주세요]','']];
     var find=function(list,kw){var r=list.filter(function(x){return (x[1]||'').indexOf(kw)>=0;})[0];return r?r[2]:'';};
     var pn=function(r){return r&&r[3]?' ('+r[3].replace(/\s*굵게/,'')+')':'';};
     var A=[],M=[],hts={};
@@ -229,6 +230,8 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs
     return ws;
   }
   function buildRatioSheet(rows){
+    // AI가 이미 넣은 합계 행은 제거하고 우리가 다시 계산한다 (이중 합산 방지)
+    rows=rows.filter(function(r,i){return i===0||((r[1]||'').indexOf('합계')<0&&(r[0]||'').indexOf('합계')<0);});
     var ws=XLSX.utils.aoa_to_sheet([[]]);
     var sum=0;
     rows.forEach(function(row,r){
