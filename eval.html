@@ -76,7 +76,7 @@ a.back{color:var(--accent);text-decoration:none;font-weight:600;font-size:13px;}
     <span class="hint" id="runNote" style="margin-left:4px;"></span>
   </div>
   <div class="bar"><i id="bar"></i></div>
-  <p class="hint" id="progress">전체 측정은 AI 사례마다 실제 검수를 돌리므로 3~6분 걸립니다. 규칙 측정은 즉시 끝납니다.</p>
+  <p class="hint" id="progress">규칙 측정은 즉시 끝납니다. 전체 측정은 AI 사례 20건을 실제로 검수하므로 7~10분 걸립니다 — 켜두고 다른 일 하셔도 됩니다.</p>
 </div>
 
 <div class="panel">
@@ -170,7 +170,79 @@ var RULE_CASES=[
   {id:'R-04',cat:'금칙어',desc:'정상 문구는 걸리지 않음 (오탐 확인)',
    run:function(){return LC.matchRules('제품명: 도라지배차, 내용량 500ml, 냉장 보관').length===0?'통과':'오탐';},expect:'통과'},
   {id:'R-05',cat:'금칙어',desc:'100% 표기는 중간 위험으로 검출',
-   run:function(){return LC.matchRules('100% 국내산').some(function(r){return r.level==='중간';})?'검출':'놓침';},expect:'검출'}
+   run:function(){return LC.matchRules('100% 국내산').some(function(r){return r.level==='중간';})?'검출':'놓침';},expect:'검출'},
+  {id:'R-06',cat:'금칙어',desc:'천연 표기 검출',
+   run:function(){return LC.matchRules('천연 원료만 사용').length>0?'검출':'놓침';},expect:'검출'},
+  {id:'R-07',cat:'금칙어',desc:'디톡스·해독 표현 검출',
+   run:function(){return LC.matchRules('몸속 독소 해독에 좋은 차').length>0?'검출':'놓침';},expect:'검출'},
+  {id:'R-08',cat:'금칙어',desc:'숙취 해소 표현 검출',
+   run:function(){return LC.matchRules('숙취 해소에 탁월').length>0?'검출':'놓침';},expect:'검출'},
+  {id:'R-09',cat:'금칙어',desc:'부작용 없음 표현 검출',
+   run:function(){return LC.matchRules('부작용 없는 안전한 제품').some(function(r){return r.level==='높음';})?'검출':'놓침';},expect:'검출'},
+  {id:'R-10',cat:'금칙어',desc:'혈당 저하 표현 검출 (건기식 오인 빈발 유형)',
+   run:function(){return LC.matchRules('혈당을 낮춰줍니다').some(function(r){return r.level==='높음';})?'검출':'놓침';},expect:'검출'},
+  {id:'R-11',cat:'금칙어',desc:'아토피 등 질병명 검출 (단속 최다 유형)',
+   run:function(){return LC.matchRules('아토피 관리에 도움').some(function(r){return r.level==='높음';})?'검출':'놓침';},expect:'검출'},
+  {id:'R-12',cat:'금칙어',desc:'전문가 보증 표현 검출',
+   run:function(){return LC.matchRules('약사가 추천하는 제품').length>0?'검출':'놓침';},expect:'검출'},
+  {id:'R-13',cat:'금칙어',desc:'정상 원재료명은 걸리지 않음 (오탐 확인)',
+   run:function(){return LC.matchRules('원재료명: 정제수, 홍삼농축액, 벌꿀, 구연산, 잔탄검').length===0?'통과':'오탐';},expect:'통과'},
+  {id:'R-14',cat:'금칙어',desc:'정상 보관·섭취 문구는 걸리지 않음 (오탐 확인)',
+   run:function(){return LC.matchRules('1일 1포 섭취하세요. 개봉 후 냉장 보관하시고 빠른 시일 내 드시기 바랍니다.').length===0?'통과':'오탐';},expect:'통과'},
+
+  // --- 알레르기 법정 목록 전체 커버 ---
+  {id:'A-08',cat:'알레르기',desc:'조개류(굴·전복·홍합) 감지',
+   run:function(){return LC.detectAllergens('굴, 전복, 홍합 추출물').map(function(a){return a.key;}).join(',');},expect:'조개류'},
+  {id:'A-09',cat:'알레르기',desc:'견과류(호두·잣) 감지',
+   run:function(){return LC.detectAllergens('호두분태, 잣').map(function(a){return a.key;}).sort().join(',');},expect:'잣,호두'},
+  {id:'A-10',cat:'알레르기',desc:'과일류(복숭아·토마토) 감지',
+   run:function(){return LC.detectAllergens('복숭아농축액, 토마토페이스트').map(function(a){return a.key;}).sort().join(',');},expect:'복숭아,토마토'},
+  {id:'A-11',cat:'알레르기',desc:'수산물(고등어·오징어·새우·게) 감지',
+   run:function(){return LC.detectAllergens('고등어추출물, 오징어먹물, 새우분말, 게살').map(function(a){return a.key;}).sort().join(',');},expect:'게,고등어,새우,오징어'},
+  {id:'A-12',cat:'알레르기',desc:'메밀·땅콩 감지 (다른 알레르겐 오탐 없이)',
+   run:function(){return LC.detectAllergens('메밀가루, 땅콩버터').map(function(a){return a.key;}).sort().join(',');},expect:'땅콩,메밀'},
+  {id:'A-13',cat:'알레르기',desc:'쇠고기 파생명칭(사골) 감지',
+   run:function(){return LC.detectAllergens('사골농축액').map(function(a){return a.key;}).join(',');},expect:'쇠고기'},
+  {id:'A-14',cat:'알레르기',desc:'대두 파생명칭(된장) 감지',
+   run:function(){return LC.detectAllergens('된장분말').map(function(a){return a.key;}).join(',');},expect:'대두'},
+  {id:'A-15',cat:'알레르기',desc:'홍삼·유산균 제품에 오탐 없음',
+   run:function(){return LC.detectAllergens('정제수, 홍삼농축액, 프락토올리고당, 잔탄검, 스테비올배당체').length===0?'없음':'오탐';},expect:'없음'},
+  {id:'A-16',cat:'알레르기',desc:'"차게 보관" 문구를 게로 오검출하지 않음',
+   run:function(){return LC.detectAllergens('개봉 후 차게 보관하여 맛있게 드세요').length===0?'없음':'오탐';},expect:'없음'},
+  {id:'A-17',cat:'알레르기',desc:'메밀가루를 밀로 오검출하지 않음',
+   run:function(){return LC.detectAllergens('메밀가루').map(function(a){return a.key;}).join(',');},expect:'메밀'},
+  {id:'A-18',cat:'알레르기',desc:'땅콩버터를 우유로 오검출하지 않음',
+   run:function(){return LC.detectAllergens('땅콩버터').map(function(a){return a.key;}).join(',');},expect:'땅콩'},
+  {id:'A-19',cat:'알레르기',desc:'유당불내증 안내문을 우유로 오검출하지 않음',
+   run:function(){return LC.detectAllergens('유당불내증이 있는 분은 주의하십시오').length===0?'없음':'오탐';},expect:'없음'},
+  {id:'A-20',cat:'알레르기',desc:'실제 게 원재료는 그대로 감지',
+   run:function(){return LC.detectAllergens('게살추출물, 꽃게엑기스').map(function(a){return a.key;}).join(',');},expect:'게'},
+  {id:'A-21',cat:'알레르기',desc:'실제 버터는 우유로 감지',
+   run:function(){return LC.detectAllergens('가공버터, 밀가루').map(function(a){return a.key;}).sort().join(',');},expect:'밀,우유'},
+
+  // --- 영양성분 추가 경계값 ---
+  {id:'N-16',cat:'영양계산',desc:'포화지방 5g 초과는 1g 단위',
+   run:function(){return LC.nutrition(100,{sat:6.4})[0].display;},expect:'6'},
+  {id:'N-17',cat:'영양계산',desc:'단백질 0.5g 미만은 0',
+   run:function(){return LC.nutrition(100,{prot:0.4})[0].display;},expect:'0'},
+  {id:'N-18',cat:'영양계산',desc:'당류 반올림 (표시값 기준 % 계산)',
+   run:function(){var r=LC.nutrition(100,{sugar:12.4})[0];return r.display+'/'+r.pct;},expect:'12/12'},
+  {id:'N-19',cat:'영양계산',desc:'소수점 1회 제공량 환산 (12.5g)',
+   run:function(){return LC.nutrition(12.5,{kcal:400})[0].display;},expect:'50'},
+  {id:'N-20',cat:'영양계산',desc:'콜레스테롤 5mg 단위 반올림',
+   run:function(){return LC.nutrition(100,{chol:23})[0].display;},expect:'25'},
+  {id:'N-21',cat:'영양계산',desc:'나트륨 120mg 경계 직하 (5mg 단위)',
+   run:function(){return LC.nutrition(100,{na:118})[0].display;},expect:'120'},
+  {id:'N-22',cat:'영양계산',desc:'지방 5g 경계 직상 (1g 단위)',
+   run:function(){return LC.nutrition(100,{fat:5.4})[0].display;},expect:'5'},
+  {id:'N-23',cat:'영양계산',desc:'전 항목 동시 계산 (9개 행 생성)',
+   run:function(){return String(LC.nutrition(20,{kcal:400,na:100,carb:80,sugar:40,fat:5,trans:0.1,sat:2,chol:10,prot:10}).length);},expect:'9'},
+
+  // --- 바코드 추가 ---
+  {id:'B-06',cat:'바코드',desc:'하이픈·공백 포함 바코드 인식',
+   run:function(){var b=LC.barcodes('880-1234-567893');return b.length===1&&b[0].ok?'정상':'실패';},expect:'정상'},
+  {id:'B-07',cat:'바코드',desc:'12자리(UPC)는 EAN-13 검사 대상 아님',
+   run:function(){return String(LC.barcodes('바코드 880123456789').length);},expect:'0'}
 ];
 
 // AI 사례: 반드시 지적해야 할 표현(must)과 지적하면 안 되는 표현(never)으로 채점
@@ -192,13 +264,63 @@ var AI_CASES=[
    must:['감기'],never:[]},
   {id:'AI-06',cat:'AI검수',ptype:'일반식품',desc:'알레르기 표시 누락 지적',
    text:'제품명: 고소한 하루 단백질바\n식품유형: 기타가공품\n원재료명: 유청단백분말, 분리대두단백, 밀가루, 아몬드\n내용량: 40g',
-   must:['알레르기'],never:[]},
+   must:['알레르기'],mustMode:'mention',never:[]},
   {id:'AI-07',cat:'AI검수',ptype:'일반식품',desc:'체중 감량 효과 보장',
    text:'제품명: 슬림데이 곤약젤리\n식품유형: 기타가공품\n광고 문구: 하루 한 개면 체중 감량 확실! 살이 쭉쭉 빠집니다.',
    must:['체중'],never:[]},
   {id:'AI-08',cat:'AI검수',ptype:'일반식품',desc:'의약품 오인 표현',
    text:'제품명: 편안한밤 대추차\n식품유형: 액상차\n광고 문구: 한의사가 추천하는 불면증 개선 한방차.',
-   must:['불면'],never:[]}
+   must:['불면'],never:[]},
+
+  // --- 식약처 단속 최다 유형: 질병 예방·치료 오인 (적발 225건 중 123건) ---
+  {id:'AI-09',cat:'AI검수',ptype:'일반식품',desc:'피부 질환(아토피·건선) 관리 표방',
+   text:'제품명: 순한결 어성초 스틱\n식품유형: 액상차\n광고 문구: 아토피·건선 관리에 도움을 주는 어성초 추출물이 듬뿍.',
+   must:['아토피'],never:[]},
+  {id:'AI-10',cat:'AI검수',ptype:'일반식품',desc:'관절·염증 개선 표방',
+   text:'제품명: 튼튼관절 MSM 젤리\n식품유형: 기타가공품\n광고 문구: 무릎 관절염과 염증 완화에 좋습니다. 계단 오르기가 편해집니다.',
+   must:['관절'],never:[]},
+
+  // --- 단속 2위 유형: 건강기능식품 오인 (38건) ---
+  {id:'AI-11',cat:'AI검수',ptype:'일반식품',desc:'혈당 관리 표방 (일반식품 불가)',
+   text:'제품명: 밸런스데이 여주차\n식품유형: 액상차\n광고 문구: 식후 혈당 관리에 좋은 여주. 혈당을 낮춰주는 차입니다.',
+   must:['혈당'],never:[]},
+  {id:'AI-12',cat:'AI검수',ptype:'일반식품',desc:'장 건강·배변 기능성 표방 (유산균 제품)',
+   text:'제품명: 데일리락 유산균 스틱\n식품유형: 기타가공품\n원재료명: 프락토올리고당, 유산균분말, 정제수\n광고 문구: 장 건강과 원활한 배변활동에 도움을 줍니다. 유해균 억제 효과.',
+   must:['배변'],never:[]},
+
+  // --- 단속 3위: 의약품 오인 (10건) ---
+  {id:'AI-13',cat:'AI검수',ptype:'일반식품',desc:'의약품 명칭 사용 (간장약·다이어트약)',
+   text:'제품명: 헛개파워 스틱\n식품유형: 액상차\n광고 문구: 애주가를 위한 간장약 대용. 술 마시기 전 한 포면 간 보호 끝.',
+   must:['간'],never:[]},
+
+  // --- 단속 4위: 신체 기능 개선 거짓·과장 (8건) ---
+  {id:'AI-14',cat:'AI검수',ptype:'일반식품',desc:'피부 미백·주름 개선 표방 (콜라겐 제품)',
+   text:'제품명: 뷰티풀데이 콜라겐 젤리\n식품유형: 기타가공품\n광고 문구: 피부 탄력과 주름 개선, 미백 효과까지. 붓기 관리에도 좋습니다.',
+   must:['주름'],never:[]},
+
+  // --- 실무 빈발: 표시사항 자체 오류 ---
+  {id:'AI-15',cat:'AI검수',ptype:'일반식품',desc:'소비기한 표기 형식 오류',
+   text:'제품명: 청정들녘 배도라지즙\n식품유형: 액상차\n원재료명: 배농축액, 도라지추출액, 정제수\n내용량: 100ml\n소비기한: 제조일로부터 12개월\n보관방법: 실온 보관',
+   must:['소비기한'],never:[]},
+  {id:'AI-16',cat:'AI검수',ptype:'일반식품',desc:'제품명에 원재료 강조 시 함량 표시 의무',
+   text:'제품명: 국산 흑마늘 진액\n식품유형: 기타가공품\n원재료명: 정제수, 흑마늘농축액, 벌꿀, 구연산\n내용량: 20ml x 30포',
+   must:['함량'],mustMode:'mention',never:[]},
+  {id:'AI-17',cat:'AI검수',ptype:'일반식품',desc:'어린이 대상 제품의 성장 효과 표방',
+   text:'제품명: 쑥쑥키움 성장젤리\n식품유형: 기타가공품\n원재료명: 산양유분말, 유청단백, 칼슘, 정제수\n광고 문구: 우리 아이 키 성장에 필수! 또래보다 큰 아이로 키우세요.',
+   must:['성장'],never:[]},
+
+  // --- 건강기능식품 정상 사례 (오탐 확인) ---
+  {id:'AI-18',cat:'AI검수',ptype:'건강기능식품',desc:'인정된 기능성 문구는 지적하지 않아야 함',
+   text:'제품명: 데일리케어 프로바이오틱스 (건강기능식품)\n기능성 원료: 프로바이오틱스(락토바실루스 100억 CFU)\n기능성 내용: 유산균 증식 및 유해균 억제에 도움을 줄 수 있음\n섭취방법: 1일 1회, 1포씩 물과 함께 섭취\n섭취 시 주의사항: 알레르기 체질은 원료를 확인하십시오.',
+   must:[],never:['유산균 증식','1일 1회']},
+
+  // --- 수출 사례 ---
+  {id:'AI-19',cat:'AI검수',ptype:'수출(미국)',desc:'미국 FDA 알레르겐 표기 차이 지적',
+   text:'제품명: 하늘푸른 견과바\n식품유형: 기타가공품\n원재료명: 아몬드, 호두, 우유단백, 대두레시틴, 밀가루\n내용량: 40g\n알레르기: 호두, 우유, 대두, 밀 함유',
+   must:['알레르'],never:[]},
+  {id:'AI-20',cat:'AI검수',ptype:'일반식품',desc:'무설탕·무첨가 강조 조건 위반',
+   text:'제품명: 제로슈가 유자스틱\n식품유형: 액상차\n원재료명: 유자농축액, 에리스리톨, 수크랄로스, 정제수\n광고 문구: 무설탕 무방부제 무색소! 천연 그대로의 맛.',
+   must:['방부제'],never:[]}
 ];
 
 // ===== 실행 =====
@@ -231,6 +353,15 @@ function flaggedIn(result,phrase){
   return false;
 }
 function mentioned(result,phrase){return String(result).indexOf(phrase)>=0;}
+// 반드시 잡아야 할 항목 판정 - 위험도(높음·중간)가 붙은 줄에서 언급됐는지 확인한다.
+// 인용부호 여부는 따지지 않는다(AI가 형식을 조금씩 다르게 쓰기 때문).
+function raisedIn(result,phrase){
+  var lines=String(result).split('\n');
+  for(var i=0;i<lines.length;i++){
+    if(lines[i].indexOf(phrase)>=0 && /(높음|중간)/.test(lines[i]))return true;
+  }
+  return false;
+}
 
 async function runOneAi(c){
   var payload=JSON.stringify({ptype:c.ptype,text:c.text,pdftext:'',images:[],suggest:false,compose:false,precise:false});
@@ -261,7 +392,13 @@ async function runOneAi(c){
 
 function scoreAi(c,text){
   var missed=[],falsePos=[];
-  (c.must||[]).forEach(function(p){if(!mentioned(text,p))missed.push(p);});
+  // mustMode 'mention' : 입력에 없던 표현이라 결과에 나오기만 하면 검출로 인정
+  // mustMode 'flag'(기본) : 입력에 있던 표현이라 위험 항목으로 다뤘는지까지 확인
+  var mode=c.mustMode||'flag';
+  (c.must||[]).forEach(function(p){
+    var ok=(mode==='mention')?mentioned(text,p):raisedIn(text,p);
+    if(!ok)missed.push(p);
+  });
   (c.never||[]).forEach(function(p){if(flaggedIn(text,p))falsePos.push(p);});
   return {
     pass:missed.length===0&&falsePos.length===0,
