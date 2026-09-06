@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <!-- 라벨체크 웹 - 식품 표시·광고 규정 검수 (Cloudflare Worker 버전 화면) -->
 <html lang="ko">
 <head>
@@ -99,6 +99,18 @@ details.hist summary{font-size:12.5px;font-weight:700;color:var(--sub);cursor:po
 details.hist li{font-size:12px;margin:5px 0;cursor:pointer;color:var(--accent);list-style:none;}
 details.hist li:hover{text-decoration:underline;}
 details.hist ul{padding-left:4px;}
+@media (max-width:600px){
+  .wrap{padding:20px 14px 56px;}
+  header.top{padding-bottom:12px;gap:8px;}
+  header.top h1{flex-basis:100%;font-size:21px;}
+  nav.tabs{gap:2px;margin:12px 0 12px;}
+  nav.tabs button{padding:11px 8px;font-size:13px;flex:1;white-space:nowrap;}
+  .kbdetail{display:none;}
+  .panel{padding:16px 15px 18px;}
+  textarea{min-height:170px;}
+  .tools button{flex:1;min-width:calc(50% - 3px);}
+  .go{padding:15px;}
+}
 @media print{
   body *{visibility:hidden;}
   .result,.result *{visibility:visible;}
@@ -136,12 +148,12 @@ details.hist ul{padding-left:4px;}
     <section class="panel">
       <span class="lbl"><span class="stepnum">1</span>검수할 자료 넣기</span>
       <div class="tools">
-        <button id="btnFsk" type="button">식품안전나라에서 불러오기</button>
+        <button id="btnFsk" type="button">식품안전나라 조회</button>
         <button id="btnFile" type="button">파일 첨부</button>
         <button id="draftSave" type="button">문안 공유 저장</button>
       </div>
       <div class="drawer" id="fskDrawer" hidden>
-        <div class="hint" style="margin:0 0 7px;">보고번호·제품명·바코드로 식약처 공식 등록정보를 불러옵니다. 회수·행정처분 이력도 조회됩니다. (무료)</div>
+        <div class="hint" style="margin:0 0 7px;">보고번호·제품명·바코드로 식약처 공식 등록정보를 불러옵니다. 회수·행정처분 이력도 조회됩니다.</div>
         <div style="display:flex;gap:6px;">
           <select id="fskKind" style="padding:6px;border:1px solid var(--line);border-radius:5px;font:inherit;font-size:12.5px;background:var(--card);color:var(--ink);">
             <option value="report">보고번호</option>
@@ -178,12 +190,12 @@ details.hist ul{padding-left:4px;}
       <details class="hist" id="optbox" style="margin-top:12px;"><summary>검수 옵션</summary>
         <label class="chk"><input type="checkbox" id="suggest" checked> 수정 문안 추천 (위반 문구를 규정에 맞게 고친 대체 문안 제시)</label>
         <label class="chk"><input type="checkbox" id="compose"> 표기 문안 생성 (검수와 함께 표시사항 초안도 작성)</label>
-        <label class="chk"><input type="checkbox" id="precise"> 정밀 검수 (더 꼼꼼하지만 비용 약 2~5배)</label>
+        <label class="chk"><input type="checkbox" id="precise"> 정밀 검수 (더 꼼꼼하게 보지만 시간이 조금 더 걸림)</label>
       </details>
       <div id="errBox" hidden class="err"></div>
     </section>
     <section class="panel">
-      <div id="prescan" hidden><span class="lbl" style="margin-top:0;">즉시 감지 (규칙 기반 · 무료)</span><ul id="prescanList"></ul></div>
+      <div id="prescan" hidden><span class="lbl" style="margin-top:0;">즉시 감지 (규칙 기반 자동 점검)</span><ul id="prescanList"></ul></div>
       <div class="result" id="out"><p class="placeholder">왼쪽에 문구를 넣고 <b>검수하기</b>를 누르면, 규정 원문과 대조해 위반 위험·오타·수정 문안을 짚어드립니다.</p></div>
       <div class="actrow" id="actrow" hidden>
         <button id="copyBtn" type="button">결과 복사</button>
@@ -201,34 +213,33 @@ details.hist ul{padding-left:4px;}
     <section class="panel">
       <span class="lbl" style="margin-top:0;"><span class="stepnum">1</span>제품 정보</span>
       <div class="ngrid">
-        <label class="nfield">1회 제공량 (성인 1회 섭취량)
-          <input id="nSrv" type="number" step="any" placeholder="예: 20">
+        <label class="nfield">1회 제공량
+          <input id="nSrv" type="number" step="any" inputmode="decimal" placeholder="예: 20">
         </label>
         <label class="nfield">단위
           <select id="nUnit"><option value="g">g (고형)</option><option value="ml">ml (액상)</option></select>
         </label>
-        <label class="nfield">총 내용량 (선택 · 총 제공횟수 계산)
-          <input id="nTotal" type="number" step="any" placeholder="예: 300">
+        <label class="nfield">총 내용량 (선택)
+          <input id="nTotal" type="number" step="any" inputmode="decimal" placeholder="예: 300">
         </label>
-        <label class="nfield">&nbsp;
-          <div class="hint" id="nServCount" style="margin:9px 0 0;">총 내용량을 넣으면 "총 ○회 제공량"을 계산합니다.</div>
-        </label>
+        <label class="nfield">&nbsp;<div style="height:3px;"></div></label>
       </div>
+      <div class="hint" id="nServCount" style="margin-top:6px;">총 내용량을 넣으면 "총 ○회 제공량"을 계산합니다.</div>
       <span class="lbl"><span class="stepnum">2</span>검사성적서 값 <b style="color:var(--accent);">100g(ml)당</b> 그대로 입력</span>
       <div class="hint" style="margin:0 0 4px;">성적서 숫자를 반올림하지 말고 소수점까지 그대로 넣으세요. 모르는 항목은 비워두면 표시에서 빠집니다.</div>
       <div class="ngrid">
-        <label class="nfield">열량 (kcal)<input id="nKcal" type="number" step="any"></label>
-        <label class="nfield">나트륨 (mg)<input id="nNa" type="number" step="any"></label>
-        <label class="nfield">탄수화물 (g)<input id="nCarb" type="number" step="any"></label>
-        <label class="nfield">당류 (g)<input id="nSugar" type="number" step="any"></label>
-        <label class="nfield">지방 (g)<input id="nFat" type="number" step="any"></label>
-        <label class="nfield">트랜스지방 (g)<input id="nTrans" type="number" step="any"></label>
-        <label class="nfield">포화지방 (g)<input id="nSat" type="number" step="any"></label>
-        <label class="nfield">콜레스테롤 (mg)<input id="nChol" type="number" step="any"></label>
-        <label class="nfield">단백질 (g)<input id="nProt" type="number" step="any"></label>
+        <label class="nfield">열량 (kcal)<input id="nKcal" type="number" step="any" inputmode="decimal"></label>
+        <label class="nfield">나트륨 (mg)<input id="nNa" type="number" step="any" inputmode="decimal"></label>
+        <label class="nfield">탄수화물 (g)<input id="nCarb" type="number" step="any" inputmode="decimal"></label>
+        <label class="nfield">당류 (g)<input id="nSugar" type="number" step="any" inputmode="decimal"></label>
+        <label class="nfield">지방 (g)<input id="nFat" type="number" step="any" inputmode="decimal"></label>
+        <label class="nfield">트랜스지방 (g)<input id="nTrans" type="number" step="any" inputmode="decimal"></label>
+        <label class="nfield">포화지방 (g)<input id="nSat" type="number" step="any" inputmode="decimal"></label>
+        <label class="nfield">콜레스테롤 (mg)<input id="nChol" type="number" step="any" inputmode="decimal"></label>
+        <label class="nfield">단백질 (g)<input id="nProt" type="number" step="any" inputmode="decimal"></label>
       </div>
       <button class="go" id="nCalc" type="button">표시값 계산하기</button>
-      <div class="hint">계산 결과는 AI를 쓰지 않는 규칙 계산이라 <b>비용이 들지 않습니다.</b> 몇 번이든 다시 계산하세요.</div>
+      <div class="hint">규칙에 따른 자동 계산입니다. 값을 바꿔가며 몇 번이든 다시 계산하세요.</div>
     </section>
     <section class="panel">
       <span class="lbl" style="margin-top:0;">패키지에 인쇄할 표시값</span>
@@ -562,6 +573,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs
     var srv=num('nSrv');
     var unit=document.getElementById('nUnit').value;
     if(!srv||srv<=0){document.getElementById('nOut').innerHTML='<p class="hint">먼저 1회 제공량을 입력하세요.</p>';document.getElementById('nSrv').focus();return;}
+    if(window.innerWidth<=840){setTimeout(function(){document.getElementById('nOut').scrollIntoView({behavior:'smooth',block:'start'});},150);}
     var per=function(id){var v=num(id);return v===null?null:v*srv/100;};
     var rows=[
       ['나트륨',per('nNa'),fmtNa,'mg',DV.na],
@@ -770,7 +782,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs
 
   function loadStatus(){
     fetch('/api/status',{headers:hdrs()}).then(function(r){return r.json();}).then(function(s){
-      kbline.innerHTML='지식베이스: <b>'+s.kb+'개 조문·항목</b> (식품표시광고법 · 표시기준 · 건기식 표시기준 · 부당광고 기준) · 동기화 '+esc(s.updated||'');
+      kbline.innerHTML='지식베이스: <b>'+s.kb+'개 조문·항목</b> <span class="kbdetail">(식품표시광고법 · 표시기준 · 건기식 표시기준 · 부당광고 기준)</span> · 동기화 '+esc(s.updated||'');
     }).catch(function(){kbline.textContent='상태 확인 실패';});
   }
 
@@ -1072,6 +1084,8 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs
     if(reqMode!=='excel')prescan(reqText+'\n'+pdfText,warns);
     go.disabled=true;document.getElementById('goXls').disabled=true;
     out.innerHTML='<p class="thinking">'+(reqMode==='excel'?'자료에서 표기사항을 추출해 엑셀을 만드는 중입니다… (20~60초)':'규정 조문과 대조해 검수하는 중입니다… (10~40초)')+'</p>';
+    // 좁은 화면에서는 결과가 입력 폼 아래로 내려가므로 결과 위치로 자동 이동
+    if(window.innerWidth<=840){setTimeout(function(){out.scrollIntoView({behavior:'smooth',block:'start'});},150);}
     try{
       var r=null, errData=null, payload=JSON.stringify({ptype:reqPtype,text:reqText,pdftext:pdfText,images:images,mode:(reqMode==='excel'?'excel':undefined),precise:document.getElementById('precise').checked,suggest:document.getElementById('suggest').checked,compose:reqMode!=='excel'&&document.getElementById('compose').checked});
       for(var attempt=1;attempt<=12;attempt++){
