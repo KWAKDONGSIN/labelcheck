@@ -1,0 +1,129 @@
+// 규칙 기반 판정 로직 - 화면(ui.html)과 정확도 측정(eval.html)이 함께 쓰는 단일 원본
+// 여기만 고치면 양쪽에 동시에 반영된다. 절대 복사해서 따로 두지 말 것.
+(function (root) {
+  var LC = {};
+
+  // === 1일 영양성분 기준치 (식품등의 표시기준 시행규칙 별표5) ===
+  LC.DV = { na: 2000, carb: 324, sugar: 100, fat: 54, sat: 15, chol: 300, prot: 55 };
+
+  // === 성분별 표시 반올림 규칙 (식품등의 표시기준 별지1) ===
+  // 반환: {d: 표시값 문자열, raw: 실측값}
+  LC.fmt = {
+    kcal: function (v) { if (v < 5) return { d: '0', raw: v }; return { d: String(Math.round(v / 5) * 5), raw: v }; },
+    na: function (v) { if (v < 5) return { d: '0', raw: v }; return { d: String(v <= 120 ? Math.round(v / 5) * 5 : Math.round(v / 10) * 10), raw: v }; },
+    g1: function (v) { if (v < 0.5) return { d: '0', raw: v }; if (v < 1) return { d: '1g 미만', raw: v }; return { d: String(Math.round(v)), raw: v }; },
+    fat: function (v) { if (v < 0.5) return { d: '0', raw: v }; return { d: String(v <= 5 ? (Math.round(v * 10) / 10) : Math.round(v)), raw: v }; },
+    trans: function (v) { if (v < 0.2) return { d: '0', raw: v }; if (v < 0.5) return { d: '0.5g 미만', raw: v }; return { d: String(v <= 5 ? (Math.round(v * 10) / 10) : Math.round(v)), raw: v }; },
+    chol: function (v) { if (v < 2) return { d: '0', raw: v }; if (v < 5) return { d: '5mg 미만', raw: v }; return { d: String(Math.round(v / 5) * 5), raw: v }; }
+  };
+
+  // 1일 기준치 대비 비율 - "미만"·"0" 표기는 실측값 기준으로 계산한다
+  LC.pct = function (f, dv) {
+    var base = /미만|^0$/.test(f.d) ? f.raw : parseFloat(f.d);
+    return Math.round(base / dv * 100);
+  };
+
+  // 100g(ml)당 값 + 1회 제공량 → 1회 제공량당 표시값
+  // vals: {kcal,na,carb,sugar,fat,trans,sat,chol,prot} (없는 항목은 null/undefined)
+  LC.nutrition = function (srv, vals) {
+    if (!srv || srv <= 0) return null;
+    var per = function (v) { return (v === null || v === undefined || isNaN(v)) ? null : v * srv / 100; };
+    var spec = [
+      ['열량', 'kcal', LC.fmt.kcal, 'kcal', null],
+      ['나트륨', 'na', LC.fmt.na, 'mg', LC.DV.na],
+      ['탄수화물', 'carb', LC.fmt.g1, 'g', LC.DV.carb],
+      ['당류', 'sugar', LC.fmt.g1, 'g', LC.DV.sugar],
+      ['지방', 'fat', LC.fmt.fat, 'g', LC.DV.fat],
+      ['트랜스지방', 'trans', LC.fmt.trans, 'g', null],
+      ['포화지방', 'sat', LC.fmt.fat, 'g', LC.DV.sat],
+      ['콜레스테롤', 'chol', LC.fmt.chol, 'mg', LC.DV.chol],
+      ['단백질', 'prot', LC.fmt.g1, 'g', LC.DV.prot]
+    ];
+    var out = [];
+    for (var i = 0; i < spec.length; i++) {
+      var v = per(vals[spec[i][1]]);
+      if (v === null) continue;
+      var f = spec[i][2](v);
+      out.push({
+        name: spec[i][0], key: spec[i][1], unit: spec[i][3],
+        display: f.d, raw: v,
+        pct: spec[i][4] ? LC.pct(f, spec[i][4]) : null
+      });
+    }
+    return out;
+  };
+
+  // === 알레르기 유발물질 (식품등의 표시기준 시행규칙 별표2 + 실무 파생 명칭) ===
+  LC.ALG = {
+    '알류': ['달걀', '계란', '난백', '난황', '전란', '메추리알', '알부민'],
+    '우유': ['우유', '유청', '유크림', '카제인', '탈지분유', '전지분유', '혼합분유', '연유', '치즈', '버터', '요구르트', '산양유', '유단백', '밀크', '생크림', '유당'],
+    '메밀': ['메밀'], '땅콩': ['땅콩', '피넛'],
+    '대두': ['대두', '두유', '콩단백', '된장', '청국장', '낫토'],
+    '밀': ['밀가루', '소맥', '통밀', '글루텐', '밀단백'],
+    '고등어': ['고등어'], '게': ['게살', '꽃게', '대게', '게 '], '새우': ['새우'],
+    '돼지고기': ['돼지고기', '돈육', '라드', '베이컨', '햄'],
+    '복숭아': ['복숭아'], '토마토': ['토마토'],
+    '아황산류': ['아황산', '무수아황산', '이산화황', '메타중아황산'],
+    '호두': ['호두'], '닭고기': ['닭고기', '계육', '치킨'],
+    '쇠고기': ['쇠고기', '소고기', '우육', '사골'],
+    '오징어': ['오징어'], '조개류': ['조개', '굴 ', '전복', '홍합', '바지락', '꼬막', '굴,', '굴)'],
+    '잣': ['잣']
+  };
+  // '밀'은 '밀크'(우유 파생어)에 걸려 오검출되므로 앞뒤 문맥을 확인한다
+  LC.ALG_GUARD = { '밀': /밀(?!크)/ };
+
+  LC.detectAllergens = function (text) {
+    var found = [];
+    Object.keys(LC.ALG).forEach(function (k) {
+      var words = LC.ALG[k].concat(k === '알류' ? [] : [k]);
+      for (var i = 0; i < words.length; i++) {
+        var w = words[i];
+        var hit;
+        if (w === k && LC.ALG_GUARD[k]) hit = LC.ALG_GUARD[k].test(text);
+        else hit = text.indexOf(w) >= 0;
+        if (hit) { found.push({ key: k, word: w.trim() }); return; }
+      }
+    });
+    return found;
+  };
+
+  // === 바코드 EAN-13 체크섬 ===
+  // 정확히 13자리인 숫자만 대상 (14~15자리 품목보고번호를 바코드로 오인하지 않는다)
+  LC.barcodes = function (text) {
+    var codes = (String(text).replace(/[\s-]/g, '').match(/\d+/g) || []).filter(function (d) { return d.length === 13; });
+    return codes.map(function (bc) {
+      var s = 0;
+      for (var i = 0; i < 12; i++) s += parseInt(bc[i], 10) * (i % 2 === 0 ? 1 : 3);
+      return { code: bc, ok: ((10 - s % 10) % 10) === parseInt(bc[12], 10) };
+    });
+  };
+
+  // === 금칙어 사전 ===
+  LC.RULES = [
+    [/치료|치유|완치/, '높음', '질병 치료 효능 표방 우려 (법 제8조제1항)'],
+    [/(당뇨|고혈압|항암|염증|아토피|관절염|치매)/, '높음', '질병명 직접 언급 — 예방·치료 효능 오인 우려'],
+    [/혈당(을|이)?\s*(낮|잡|내리|떨어)/, '높음', '혈당 저하 효능 표방 — 일반식품 불가'],
+    [/(면역력|면역)\s*(증진|강화|높)/, '높음', '일반식품의 기능성 표방 (건기식 오인)'],
+    [/살이\s*빠|체중\s*감량/, '높음', '체중 감량 효과 보장 표현'],
+    [/디톡스|해독/, '중간', '과학적 근거 불명확 용어'],
+    [/무\s*방부제|방부제\s*무첨가|무\s*MSG|MSG\s*무첨가/, '높음', '부당광고기준 제2조3호사목 — 무첨가 표기 금지'],
+    [/100\s*%/, '중간', '부당광고기준 제2조3호카목 — 조건 미충족 시 금지'],
+    [/천연|자연\s*그대로/, '중간', '부당광고기준 제2조3호차목 — 조건 미충족 시 금지'],
+    [/최초|최고|1\s*위|유일/, '중간', '객관적 입증자료 없으면 과장광고'],
+    [/슈퍼푸드/, '중간', '부당광고기준 명시 — 정의 불명확 용어'],
+    [/의사|약사|전문의/, '중간', '전문가 보증 오인 표현'],
+    [/숙취\s*해소/, '중간', '실증자료 갖춘 경우만 제한적 허용'],
+    [/부작용\s*(없|제로)/, '높음', '절대적 안전성 보장 표현'],
+    [/특효|만병/, '높음', '의약품적 효능 표방']
+  ];
+  LC.matchRules = function (text) {
+    var out = [];
+    LC.RULES.forEach(function (r) {
+      var m = String(text).match(r[0]);
+      if (m) out.push({ level: r[1], match: m[0], msg: r[2] });
+    });
+    return out;
+  };
+
+  root.LC = LC;
+})(typeof window !== 'undefined' ? window : globalThis);

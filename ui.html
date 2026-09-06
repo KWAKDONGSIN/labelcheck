@@ -286,6 +286,7 @@ window.pdfjsLib = pdfjsLib;
 pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.worker.min.mjs";
 </script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
+<script src="/rules.js"></script>
 <script>
 (function(){
   var EXAMPLE="제품명: 맑은아침 도라지배차\n식품유형: 액상차\n원재료명: 배농축액, 도라지추출액, 대추, 생강\n내용량: 1,000ml\n광고 문구: 기침·가래에 특효! 감기 예방에 좋은 차. 마시면 면역력이 쑥쑥. 100% 국내산. 무설탕, 무방부제.";
@@ -547,15 +548,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs
   };
   document.getElementById('printBtn').onclick=function(){window.print();};
 
-  // === 영양성분표 계산기 (식품등의 표시기준 별지1 반올림 규칙 + 시행규칙 별표5 기준치) ===
-  var DV={na:2000,carb:324,sugar:100,fat:54,sat:15,chol:300,prot:55};
-  function fmtKcal(v){if(v<5)return {d:'0',raw:v};return {d:String(Math.round(v/5)*5),raw:v};}
-  function fmtNa(v){if(v<5)return {d:'0',raw:v};return {d:String(v<=120?Math.round(v/5)*5:Math.round(v/10)*10),raw:v};}
-  function fmtG1(v){if(v<0.5)return {d:'0',raw:v};if(v<1)return {d:'1g 미만',raw:v};return {d:String(Math.round(v)),raw:v};}
-  function fmtFat(v){if(v<0.5)return {d:'0',raw:v};return {d:String(v<=5?(Math.round(v*10)/10):Math.round(v)),raw:v};}
-  function fmtTrans(v){if(v<0.2)return {d:'0',raw:v};if(v<0.5)return {d:'0.5g 미만',raw:v};return {d:String(v<=5?(Math.round(v*10)/10):Math.round(v)),raw:v};}
-  function fmtChol(v){if(v<2)return {d:'0',raw:v};if(v<5)return {d:'5mg 미만',raw:v};return {d:String(Math.round(v/5)*5),raw:v};}
-  function pct(f,dv){var base=/미만|^0$/.test(f.d)?f.raw:parseFloat(f.d);return Math.round(base/dv*100);}
+  // === 영양성분표 계산기 - 계산 규칙은 rules.js(LC)에 있다 ===
   var num=function(id){var v=parseFloat(document.getElementById(id).value);return isNaN(v)?null:v;};
   // 총 내용량 ÷ 1회 제공량 = 총 제공횟수 (표시기준상 "총 ○회 제공량" 표기에 필요)
   function updServCount(){
@@ -574,33 +567,19 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs
     var unit=document.getElementById('nUnit').value;
     if(!srv||srv<=0){document.getElementById('nOut').innerHTML='<p class="hint">먼저 1회 제공량을 입력하세요.</p>';document.getElementById('nSrv').focus();return;}
     if(window.innerWidth<=840){setTimeout(function(){document.getElementById('nOut').scrollIntoView({behavior:'smooth',block:'start'});},150);}
-    var per=function(id){var v=num(id);return v===null?null:v*srv/100;};
-    var rows=[
-      ['나트륨',per('nNa'),fmtNa,'mg',DV.na],
-      ['탄수화물',per('nCarb'),fmtG1,'g',DV.carb],
-      ['당류',per('nSugar'),fmtG1,'g',DV.sugar],
-      ['지방',per('nFat'),fmtFat,'g',DV.fat],
-      ['트랜스지방',per('nTrans'),fmtTrans,'g',null],
-      ['포화지방',per('nSat'),fmtFat,'g',DV.sat],
-      ['콜레스테롤',per('nChol'),fmtChol,'mg',DV.chol],
-      ['단백질',per('nProt'),fmtG1,'g',DV.prot]
-    ];
-    var kcal=per('nKcal');
+    var rows=LC.nutrition(srv,{kcal:num('nKcal'),na:num('nNa'),carb:num('nCarb'),sugar:num('nSugar'),fat:num('nFat'),trans:num('nTrans'),sat:num('nSat'),chol:num('nChol'),prot:num('nProt')});
     var tot=num('nTotal');
     var servTxt='1회 제공량 '+srv+unit;
     if(tot&&tot>0){var n=tot/srv;servTxt+=', 총 '+((Math.abs(n-Math.round(n))<0.05)?Math.round(n):n.toFixed(1))+'회 제공량';}
     var html='<p style="font-size:13.5px;margin:0 0 8px;"><b>'+servTxt+'</b></p>';
     html+='<div class="tblwrap"><table><tr><th>영양성분</th><th>1회 제공량('+srv+unit+')당</th><th>1일 기준치 %</th></tr>';
-    if(kcal!==null){var fk=fmtKcal(kcal);html+='<tr><td><b>열량</b></td><td><b>'+fk.d+' kcal</b> <span style="color:var(--sub);font-size:11px;">(실측 '+kcal.toFixed(1)+')</span></td><td>-</td></tr>';}
-    var copyLines=kcal!==null?['열량 '+fmtKcal(kcal).d+'kcal']:[];
+    var copyLines=[];
     rows.forEach(function(r){
-      if(r[1]===null)return;
-      var f=r[2](r[1]);
-      var unit=/미만|^0$/.test(f.d)&&f.d!=='0'?'':(f.d==='0'?r[3]:r[3]);
-      var disp=f.d==='0'?'0'+r[3]:(/미만/.test(f.d)?f.d:f.d+r[3]);
-      var p=r[4]?pct(f,r[4])+'%':'-';
-      html+='<tr><td>'+r[0]+'</td><td>'+disp+' <span style="color:var(--sub);font-size:11px;">(실측 '+r[1].toFixed(2)+')</span></td><td>'+p+'</td></tr>';
-      copyLines.push(r[0]+' '+disp+(r[4]?' ('+pct(f,r[4])+'%)':''));
+      var disp=(r.display==='0')?('0'+r.unit):(/미만/.test(r.display)?r.display:r.display+r.unit);
+      var p=(r.pct===null)?'-':(r.pct+'%');
+      var bold=(r.key==='kcal');
+      html+='<tr><td>'+(bold?'<b>'+r.name+'</b>':r.name)+'</td><td>'+(bold?'<b>'+disp+'</b>':disp)+' <span style="color:var(--sub);font-size:11px;">(실측 '+r.raw.toFixed(2)+')</span></td><td>'+p+'</td></tr>';
+      copyLines.push(r.name+' '+disp+((r.pct===null)?'':' ('+r.pct+'%)'));
     });
     html+='</table></div>';
     html+='<div class="hint">근거: 식품등의 표시기준 별지1(성분별 반올림 규칙), 시행규칙 별표5(1일 기준치). "그 값 그대로" 표시도 허용되므로 실측값 표기도 가능합니다.</div>';
@@ -956,22 +935,6 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs
     }
   };
 
-  var RULES=[
-    [/치료|치유|완치/,'높음','질병 치료 효능 표방 우려 (법 제8조제1항)'],
-    [/(당뇨|고혈압|항암|염증|아토피|관절염|치매)/,'높음','질병명 직접 언급 — 예방·치료 효능 오인 우려'],
-    [/혈당(을|이)?\s*(낮|잡|내리|떨어)/,'높음','혈당 저하 효능 표방 — 일반식품 불가'],
-    [/(면역력|면역)\s*(증진|강화|높)/,'높음','일반식품의 기능성 표방 (건기식 오인)'],
-    [/살이\s*빠|체중\s*감량/,'높음','체중 감량 효과 보장 표현'],
-    [/디톡스|해독/,'중간','과학적 근거 불명확 용어'],
-    [/무\s*방부제|방부제\s*무첨가|무\s*MSG|MSG\s*무첨가/,'높음','부당광고기준 제2조3호사목 — 무첨가 표기 금지'],
-    [/100\s*%/,'중간','부당광고기준 제2조3호카목 — 조건 미충족 시 금지'],
-    [/천연|자연\s*그대로/,'중간','부당광고기준 제2조3호차목 — 조건 미충족 시 금지'],
-    [/최초|최고|1\s*위|유일/,'중간','객관적 입증자료 없으면 과장광고'],
-    [/슈퍼푸드/,'중간','부당광고기준 명시 — 정의 불명확 용어'],
-    [/의사|약사|전문의/,'중간','전문가 보증 오인 표현'],
-    [/숙취\s*해소/,'중간','실증자료 갖춘 경우만 제한적 허용'],
-    [/부작용\s*(없|제로)/,'높음','절대적 안전성 보장 표현']
-  ];
   // 입력 속 보고번호·바코드를 식품안전나라 공식 DB와 자동 대조 (비동기 - 결과가 나오는 대로 목록에 추가)
   function fskCross(text,list){
     var digits=text.replace(/[\s-]/g,'');
@@ -1021,50 +984,25 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs
       li.textContent='즉시 감지 규칙은 한국 규정 기준이라 수출 검수에는 적용하지 않습니다.';
       list.appendChild(li);box.hidden=false;return;
     }
-    // ① 알레르기 유발물질 자동 감지 (시행규칙 별표2 법정 목록 + 파생 명칭)
-    var ALG={
-      '알류':['달걀','계란','난백','난황','전란','메추리알','알부민'],
-      '우유':['우유','유청','유크림','카제인','탈지분유','전지분유','혼합분유','연유','치즈','버터','요구르트','산양유','유단백','밀크','생크림','유당'],
-      '메밀':['메밀'],'땅콩':['땅콩','피넛'],
-      '대두':['대두','두유','콩단백','된장','청국장','낫토'],
-      '밀':['밀가루','소맥','통밀','글루텐','밀단백'],
-      '고등어':['고등어'],'게':['게살','꽃게','대게','게 '],'새우':['새우'],
-      '돼지고기':['돼지고기','돈육','라드','베이컨','햄'],
-      '복숭아':['복숭아'],'토마토':['토마토'],
-      '아황산류':['아황산','무수아황산','이산화황','메타중아황산'],
-      '호두':['호두'],'닭고기':['닭고기','계육','치킨'],
-      '쇠고기':['쇠고기','소고기','우육','사골'],
-      '오징어':['오징어'],'조개류':['조개','굴 ','전복','홍합','바지락','꼬막','굴,','굴)'],
-      '잣':['잣']
-    };
-    var algFound=[];
-    Object.keys(ALG).forEach(function(k){
-      var words=ALG[k].concat(k==='알류'?[]:[k]);
-      for(var wi=0;wi<words.length;wi++){
-        if(text.indexOf(words[wi])>=0){algFound.push(k+'('+words[wi].trim()+')');break;}
-      }
-    });
+    // ① 알레르기 유발물질 자동 감지 (판정 규칙은 rules.js)
+    var algFound=LC.detectAllergens(text).map(function(a){return a.key+'('+a.word+')';});
     var already=/함유/.test(text);
     if(algFound.length){
       var la=document.createElement('li');la.style.cssText='font-size:12.5px;margin:3px 0;';
       la.innerHTML='<span class="badge '+(already?'b-low':'b-mid')+'">알레르기</span>감지: '+esc(algFound.join(', '))+' → "○○ 함유" 표시 '+(already?'있음 - 목록 일치 확인':'필요')+' (시행규칙 별표2)';
       list.appendChild(la);
     }
-    // ② 바코드 체크섬 검증 (EAN-13) - 정확히 13자리인 숫자만. 14~15자리 품목보고번호의 앞 13자리를 바코드로 오인하지 않는다
-    var codes=(text.replace(/[\s-]/g,'').match(/\d+/g)||[]).filter(function(d){return d.length===13;});
-    codes.slice(0,3).forEach(function(bc){
-      var s=0;for(var bi=0;bi<12;bi++)s+=parseInt(bc[bi])*(bi%2===0?1:3);
-      var ok=((10-s%10)%10)===parseInt(bc[12]);
+    // ② 바코드 체크섬 검증 (EAN-13, 판정 규칙은 rules.js)
+    LC.barcodes(text).slice(0,3).forEach(function(b){
       var lb=document.createElement('li');lb.style.cssText='font-size:12.5px;margin:3px 0;';
-      lb.innerHTML='<span class="badge '+(ok?'b-low':'b-hi')+'">바코드</span>'+bc+' — '+(ok?'체크섬 정상':'⚠ 체크섬 불일치 - 숫자 오타 가능성');
+      lb.innerHTML='<span class="badge '+(b.ok?'b-low':'b-hi')+'">바코드</span>'+b.code+' — '+(b.ok?'체크섬 정상':'⚠ 체크섬 불일치 - 숫자 오타 가능성');
       list.appendChild(lb);
     });
     // ③ 식품안전나라 공식 DB 자동 대조 - 보고번호·바코드가 보이면 등록정보·회수이력과 교차 검증 (무료)
     fskCross(text,list);
-    RULES.forEach(function(r){
-      var m=text.match(r[0]);
-      if(m){hits++;var li=document.createElement('li');li.style.cssText='font-size:12.5px;margin:3px 0;';
-        li.innerHTML='<span class="badge '+(r[1]==='높음'?'b-hi':'b-mid')+'">'+r[1]+'</span>"'+esc(m[0])+'" — '+esc(r[2]);list.appendChild(li);}
+    LC.matchRules(text).forEach(function(r){
+      hits++;var li=document.createElement('li');li.style.cssText='font-size:12.5px;margin:3px 0;';
+      li.innerHTML='<span class="badge '+(r.level==='높음'?'b-hi':'b-mid')+'">'+r.level+'</span>"'+esc(r.match)+'" — '+esc(r.msg);list.appendChild(li);
     });
     if(!hits){var li=document.createElement('li');li.style.cssText='font-size:12.5px;color:var(--sub);';li.textContent='금칙어 사전에서 걸린 표현 없음 — AI 검수 결과를 확인하세요.';list.appendChild(li);}
     box.hidden=false;

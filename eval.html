@@ -1,0 +1,370 @@
+<!doctype html>
+<!-- 정확도 측정 장치 - 정답이 정해진 사례로 검수 품질을 점수화하고 이전 회차와 비교한다 -->
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>라벨체크 정확도 측정</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" media="print" onload="this.media='all'">
+<style>
+:root{--paper:#f6f5f4;--card:#fff;--ink:#191918;--sub:#615d59;--faint:#a39e98;--line:#e6e6e6;--accent:#0075de;--accent-active:#005bab;--accent-soft:#f0f7fd;--hi:#d44c47;--hi-bg:#fdebec;--mid:#cb912f;--mid-bg:#fbf3db;--low:#448361;--low-bg:#edf3ec;--mono:#f1f1ef;--shadow-1:0 0.2px 1px rgba(0,0,0,.02),0 1px 3px rgba(0,0,0,.03),0 2px 8px rgba(0,0,0,.04);}
+[hidden]{display:none!important;}
+body{background:var(--paper);color:var(--ink);font-family:'Pretendard Variable',Pretendard,Inter,-apple-system,'Malgun Gothic',sans-serif;margin:0;line-height:1.6;-webkit-font-smoothing:antialiased;}
+.wrap{max-width:1000px;margin:0 auto;padding:28px 22px 70px;}
+header.top{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding-bottom:16px;margin-bottom:18px;}
+h1{font-size:23px;font-weight:700;margin:0;letter-spacing:-0.5px;}
+.tag{font-size:13px;color:var(--sub);}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin-bottom:16px;}
+.scorerow{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;}
+.score{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;text-align:center;}
+.score .big{font-size:32px;font-weight:700;letter-spacing:-1px;line-height:1.15;}
+.score .lbl{font-size:12px;color:var(--sub);font-weight:600;margin-top:2px;}
+.score .sub{font-size:11.5px;color:var(--faint);margin-top:3px;}
+.ok{color:var(--low);} .bad{color:var(--hi);} .warn{color:var(--mid);}
+button{font:inherit;cursor:pointer;}
+.btn{padding:11px 20px;border:none;border-radius:9999px;background:var(--accent);color:#fff;font-size:14px;font-weight:600;}
+.btn:hover{background:var(--accent-active);}
+.btn:disabled{opacity:.5;}
+.btn2{padding:11px 18px;border:1px solid var(--line);border-radius:9999px;background:var(--card);color:var(--ink);font-size:14px;font-weight:600;}
+.btn2:hover{background:var(--mono);}
+table{border-collapse:collapse;width:100%;font-size:13px;margin-top:10px;}
+th,td{border:1px solid var(--line);padding:7px 10px;text-align:left;vertical-align:top;}
+th{background:var(--mono);font-weight:600;font-size:11.5px;color:var(--sub);}
+tr.pass td:first-child{border-left:3px solid var(--low);}
+tr.fail td:first-child{border-left:3px solid var(--hi);}
+.pill{display:inline-block;font-size:11px;font-weight:600;padding:1px 8px;border-radius:9999px;}
+.p-ok{background:var(--low-bg);color:var(--low);} .p-no{background:var(--hi-bg);color:var(--hi);}
+.hint{font-size:12.5px;color:var(--faint);}
+.bar{height:6px;background:var(--mono);border-radius:9999px;overflow:hidden;margin:10px 0;}
+.bar i{display:block;height:100%;background:var(--accent);width:0;transition:width .2s;}
+#gate{position:fixed;inset:0;background:var(--paper);display:flex;align-items:center;justify-content:center;z-index:10;}
+#gate .box{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:32px 28px;max-width:330px;width:90%;text-align:center;box-shadow:var(--shadow-1);}
+#gate input{width:100%;box-sizing:border-box;padding:11px;border:1px solid var(--line);border-radius:5px;font:inherit;text-align:center;letter-spacing:.15em;}
+#gate button{width:100%;margin-top:12px;padding:11px;border:none;border-radius:9999px;background:var(--accent);color:#fff;font-weight:600;}
+a.back{color:var(--accent);text-decoration:none;font-weight:600;font-size:13px;}
+</style>
+</head>
+<body>
+<div id="gate"><div class="box">
+  <h2 style="font-size:18px;margin:0 0 8px;">정확도 측정</h2>
+  <p class="hint" style="margin:0 0 16px;">관리자용 도구입니다. 접속 코드를 입력하세요.</p>
+  <input id="codeIn" type="password" placeholder="접속 코드" autocomplete="off">
+  <button id="codeGo" type="button">입장</button>
+  <div id="gateErr" style="color:var(--hi);font-size:12.5px;margin-top:10px;min-height:16px;"></div>
+</div></div>
+
+<div class="wrap">
+<header class="top">
+  <h1>정확도 측정</h1>
+  <span class="tag">정답이 정해진 사례로 검수 품질을 점수화합니다</span>
+  <a class="back" href="/" style="margin-left:auto;">← 라벨체크로</a>
+</header>
+
+<div class="scorerow" id="scores">
+  <div class="score"><div class="big" id="sAll">–</div><div class="lbl">종합 점수</div><div class="sub" id="sAllSub">아직 측정 전</div></div>
+  <div class="score"><div class="big" id="sRule">–</div><div class="lbl">규칙 판정</div><div class="sub" id="sRuleSub">계산·감지·체크섬</div></div>
+  <div class="score"><div class="big" id="sAi">–</div><div class="lbl">AI 검수</div><div class="sub" id="sAiSub">위반 검출·오탐</div></div>
+  <div class="score"><div class="big" id="sPrev">–</div><div class="lbl">직전 회차 대비</div><div class="sub" id="sPrevSub">비교 대상 없음</div></div>
+</div>
+
+<div class="panel">
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+    <button class="btn" id="runAll" type="button">전체 측정 (규칙 + AI)</button>
+    <button class="btn2" id="runRule" type="button">규칙만 측정 (빠름)</button>
+    <button class="btn2" id="saveRun" type="button" disabled>이번 결과 기록</button>
+    <span class="hint" id="runNote" style="margin-left:4px;"></span>
+  </div>
+  <div class="bar"><i id="bar"></i></div>
+  <p class="hint" id="progress">전체 측정은 AI 사례마다 실제 검수를 돌리므로 3~6분 걸립니다. 규칙 측정은 즉시 끝납니다.</p>
+</div>
+
+<div class="panel">
+  <h3 style="margin:0 0 2px;font-size:15px;">사례별 결과</h3>
+  <p class="hint" style="margin:0;">실패한 사례는 무엇을 기대했고 무엇이 나왔는지 표시됩니다.</p>
+  <div style="overflow-x:auto;"><table id="tbl"><tbody id="tbody"><tr><td class="hint">측정을 실행하면 결과가 표시됩니다.</td></tr></tbody></table></div>
+</div>
+
+<div class="panel">
+  <h3 style="margin:0 0 2px;font-size:15px;">측정 이력</h3>
+  <p class="hint" style="margin:0;">기록해 둔 회차입니다. 고친 뒤 다시 측정해 점수가 올랐는지 확인하세요.</p>
+  <div style="overflow-x:auto;"><table><tbody id="runs"><tr><td class="hint">기록된 회차가 없습니다.</td></tr></tbody></table></div>
+</div>
+</div>
+
+<script src="/rules.js"></script>
+<script>
+(function(){
+// ===== 평가 세트 =====
+// 전부 가상 제품 데이터. 실제 거래처·제품 정보를 넣지 말 것.
+// 규칙 사례: 정답이 하나로 정해지므로 완전 자동 채점.
+var RULE_CASES=[
+  // --- 영양성분 반올림 (별지1 경계값) ---
+  {id:'N-01',cat:'영양계산',desc:'열량 5kcal 단위 반올림',
+   run:function(){return LC.nutrition(100,{kcal:76})[0].display;},expect:'75'},
+  {id:'N-02',cat:'영양계산',desc:'1회 제공량 환산 후 반올림 (20g)',
+   run:function(){return LC.nutrition(20,{kcal:380})[0].display;},expect:'75'},
+  {id:'N-03',cat:'영양계산',desc:'열량 5kcal 미만은 0',
+   run:function(){return LC.nutrition(100,{kcal:4.2})[0].display;},expect:'0'},
+  {id:'N-04',cat:'영양계산',desc:'나트륨 120mg 이하는 5mg 단위',
+   run:function(){return LC.nutrition(100,{na:9})[0].display;},expect:'10'},
+  {id:'N-05',cat:'영양계산',desc:'나트륨 120mg 초과는 10mg 단위',
+   run:function(){return LC.nutrition(100,{na:203})[0].display;},expect:'200'},
+  {id:'N-06',cat:'영양계산',desc:'탄수화물 1g 미만 표기',
+   run:function(){return LC.nutrition(100,{carb:0.7})[0].display;},expect:'1g 미만'},
+  {id:'N-07',cat:'영양계산',desc:'탄수화물 0.5g 미만은 0',
+   run:function(){return LC.nutrition(100,{carb:0.3})[0].display;},expect:'0'},
+  {id:'N-08',cat:'영양계산',desc:'지방 5g 이하는 0.1g 단위',
+   run:function(){return LC.nutrition(100,{fat:4.24})[0].display;},expect:'4.2'},
+  {id:'N-09',cat:'영양계산',desc:'지방 5g 초과는 1g 단위',
+   run:function(){return LC.nutrition(100,{fat:7.6})[0].display;},expect:'8'},
+  {id:'N-10',cat:'영양계산',desc:'트랜스지방 0.5g 미만 표기',
+   run:function(){return LC.nutrition(100,{trans:0.32})[0].display;},expect:'0.5g 미만'},
+  {id:'N-11',cat:'영양계산',desc:'트랜스지방 0.2g 미만은 0',
+   run:function(){return LC.nutrition(100,{trans:0.1})[0].display;},expect:'0'},
+  {id:'N-12',cat:'영양계산',desc:'콜레스테롤 5mg 미만 표기',
+   run:function(){return LC.nutrition(100,{chol:3})[0].display;},expect:'5mg 미만'},
+  {id:'N-13',cat:'영양계산',desc:'나트륨 1일 기준치 비율',
+   run:function(){return String(LC.nutrition(100,{na:9})[0].pct);},expect:'1'},
+  {id:'N-14',cat:'영양계산',desc:'"미만" 표기는 실측값 기준으로 % 계산',
+   run:function(){return String(LC.nutrition(100,{carb:0.7})[0].pct);},expect:'0'},
+  {id:'N-15',cat:'영양계산',desc:'값 없는 항목은 표시에서 제외',
+   run:function(){return String(LC.nutrition(100,{kcal:100,na:null}).length);},expect:'1'},
+
+  // --- 알레르기 감지 (시행규칙 별표2) ---
+  {id:'A-01',cat:'알레르기',desc:'파생 명칭 4종 동시 감지',
+   run:function(){return LC.detectAllergens('밀가루, 탈지분유, 분리대두단백, 새우분말').map(function(a){return a.key;}).sort().join(',');},
+   expect:'대두,밀,새우,우유'},
+  {id:'A-02',cat:'알레르기',desc:'해당 없는 원재료는 감지하지 않음',
+   run:function(){return LC.detectAllergens('정제수, 설탕, 구연산, 정제소금').length===0?'없음':'오탐';},expect:'없음'},
+  {id:'A-03',cat:'알레르기',desc:'난황·전란은 알류로 감지',
+   run:function(){return LC.detectAllergens('난황, 전란액').map(function(a){return a.key;}).join(',');},expect:'알류'},
+  {id:'A-04',cat:'알레르기',desc:'돈육·계육은 육류로 감지',
+   run:function(){return LC.detectAllergens('돈육, 계육').map(function(a){return a.key;}).sort().join(',');},expect:'닭고기,돼지고기'},
+  {id:'A-05',cat:'알레르기',desc:'"밀크"는 우유만 감지 (밀 오탐 방지)',
+   run:function(){return LC.detectAllergens('아몬드밀크').map(function(a){return a.key;}).sort().join(',');},expect:'우유'},
+  {id:'A-06',cat:'알레르기',desc:'아황산류 감지',
+   run:function(){return LC.detectAllergens('건포도(무수아황산)').map(function(a){return a.key;}).join(',');},expect:'아황산류'},
+  {id:'A-07',cat:'알레르기',desc:'유청단백은 우유로 감지',
+   run:function(){return LC.detectAllergens('유청단백분말').map(function(a){return a.key;}).join(',');},expect:'우유'},
+
+  // --- 바코드 체크섬 (EAN-13) ---
+  {id:'B-01',cat:'바코드',desc:'정상 바코드 판정',
+   run:function(){var b=LC.barcodes('바코드 8801234567893');return b.length===1&&b[0].ok?'정상':'오판';},expect:'정상'},
+  {id:'B-02',cat:'바코드',desc:'끝자리 오타 검출',
+   run:function(){var b=LC.barcodes('바코드 8801234567891');return b.length===1&&!b[0].ok?'불일치':'놓침';},expect:'불일치'},
+  {id:'B-03',cat:'바코드',desc:'14자리 품목보고번호를 바코드로 오인하지 않음',
+   run:function(){return String(LC.barcodes('품목보고번호 20170614111755').length);},expect:'0'},
+  {id:'B-04',cat:'바코드',desc:'보고번호와 바코드가 함께 있으면 바코드만 검사',
+   run:function(){var b=LC.barcodes('보고번호 20170614111755 바코드 8801234567893');return b.length+':'+(b[0]?b[0].code:'');},expect:'1:8801234567893'},
+  {id:'B-05',cat:'바코드',desc:'전화번호(11자리)는 검사 대상 아님',
+   run:function(){return String(LC.barcodes('고객상담실 01012345678').length);},expect:'0'},
+
+  // --- 금칙어 사전 ---
+  {id:'R-01',cat:'금칙어',desc:'질병 치료 표방 검출',
+   run:function(){return LC.matchRules('관절염 치료에 좋습니다').some(function(r){return r.level==='높음';})?'검출':'놓침';},expect:'검출'},
+  {id:'R-02',cat:'금칙어',desc:'면역력 증진 표방 검출',
+   run:function(){return LC.matchRules('면역력 증진에 도움').some(function(r){return r.level==='높음';})?'검출':'놓침';},expect:'검출'},
+  {id:'R-03',cat:'금칙어',desc:'무방부제 표기 검출',
+   run:function(){return LC.matchRules('무방부제 제품입니다').some(function(r){return r.level==='높음';})?'검출':'놓침';},expect:'검출'},
+  {id:'R-04',cat:'금칙어',desc:'정상 문구는 걸리지 않음 (오탐 확인)',
+   run:function(){return LC.matchRules('제품명: 도라지배차, 내용량 500ml, 냉장 보관').length===0?'통과':'오탐';},expect:'통과'},
+  {id:'R-05',cat:'금칙어',desc:'100% 표기는 중간 위험으로 검출',
+   run:function(){return LC.matchRules('100% 국내산').some(function(r){return r.level==='중간';})?'검출':'놓침';},expect:'검출'}
+];
+
+// AI 사례: 반드시 지적해야 할 표현(must)과 지적하면 안 되는 표현(never)으로 채점
+var AI_CASES=[
+  {id:'AI-01',cat:'AI검수',ptype:'일반식품',desc:'질병 치료·예방 표방',
+   text:'제품명: 맑은아침 도라지배차\n식품유형: 액상차\n광고 문구: 기침·가래에 특효! 감기 예방에 좋은 차입니다.',
+   must:['특효'],never:[]},
+  {id:'AI-02',cat:'AI검수',ptype:'일반식품',desc:'일반식품의 기능성 표방',
+   text:'제품명: 튼튼모아 홍삼음료\n식품유형: 혼합음료\n광고 문구: 면역력 증진과 피로 회복에 탁월합니다.',
+   must:['면역력'],never:[]},
+  {id:'AI-03',cat:'AI검수',ptype:'일반식품',desc:'무첨가 강조 표시 위반',
+   text:'제품명: 청정들녘 배즙\n식품유형: 액상차\n광고 문구: 무방부제, 무색소로 안심하고 드세요.',
+   must:['방부제'],never:[]},
+  {id:'AI-04',cat:'AI검수',ptype:'일반식품',desc:'정상 표시사항 - 오탐 확인',
+   text:'제품명: 하늘푸른 유자차\n식품유형: 액상차\n원재료명: 유자농축액 40%, 설탕, 정제수\n내용량: 300g\n보관방법: 직사광선을 피해 서늘한 곳에 보관\n소비기한: 별도 표기일까지',
+   must:[],never:['유자농축액','설탕','보관방법']},
+  {id:'AI-05',cat:'AI검수',ptype:'건강기능식품',desc:'건기식 허용범위 초과 표현',
+   text:'제품명: 튼튼비타 아연정 (건강기능식품)\n기능성: 아연은 정상적인 면역기능에 필요\n광고 문구: 이 제품 하나면 감기 걱정 끝! 아연 함량 국내 최고 수준.',
+   must:['감기'],never:[]},
+  {id:'AI-06',cat:'AI검수',ptype:'일반식품',desc:'알레르기 표시 누락 지적',
+   text:'제품명: 고소한 하루 단백질바\n식품유형: 기타가공품\n원재료명: 유청단백분말, 분리대두단백, 밀가루, 아몬드\n내용량: 40g',
+   must:['알레르기'],never:[]},
+  {id:'AI-07',cat:'AI검수',ptype:'일반식품',desc:'체중 감량 효과 보장',
+   text:'제품명: 슬림데이 곤약젤리\n식품유형: 기타가공품\n광고 문구: 하루 한 개면 체중 감량 확실! 살이 쭉쭉 빠집니다.',
+   must:['체중'],never:[]},
+  {id:'AI-08',cat:'AI검수',ptype:'일반식품',desc:'의약품 오인 표현',
+   text:'제품명: 편안한밤 대추차\n식품유형: 액상차\n광고 문구: 한의사가 추천하는 불면증 개선 한방차.',
+   must:['불면'],never:[]}
+];
+
+// ===== 실행 =====
+var code='',results=[],lastScore=null;
+function hdrs(x){var h=x||{};h['X-Access-Code']=code;return h;}
+function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;');}
+function setBar(p){document.getElementById('bar').style.width=(p*100).toFixed(0)+'%';}
+
+function runRules(){
+  return RULE_CASES.map(function(c){
+    var got,err=null;
+    try{got=c.run();}catch(e){got='(오류) '+String(e).slice(0,60);err=true;}
+    return {id:c.id,cat:c.cat,desc:c.desc,expect:c.expect,got:String(got),pass:!err&&String(got)===String(c.expect)};
+  });
+}
+
+// AI 결과에서 해당 표현이 "위반으로 지적됐는지" 판정
+// 위반 항목은 [높음]/[중간] 뒤에 문제 문구를 따옴표로 인용하는 형식이다.
+// 같은 줄에 등장하기만 한 경우(예: "함량 표시를 확인하세요")는 지적이 아니므로 제외한다.
+function flaggedIn(result,phrase){
+  var lines=String(result).split('\n');
+  for(var i=0;i<lines.length;i++){
+    var L=lines[i];
+    if(!/(\[|\*\*)?\s*(높음|중간)\s*(\]|\*\*)?/.test(L))continue;
+    var quoted=L.match(/["“”'']([^"“”'']{2,80})["“”'']/g)||[];
+    for(var j=0;j<quoted.length;j++){
+      if(quoted[j].indexOf(phrase)>=0)return true;
+    }
+  }
+  return false;
+}
+function mentioned(result,phrase){return String(result).indexOf(phrase)>=0;}
+
+async function runOneAi(c){
+  var payload=JSON.stringify({ptype:c.ptype,text:c.text,pdftext:'',images:[],suggest:false,compose:false,precise:false});
+  var r=null,acc='';
+  for(var attempt=1;attempt<=8;attempt++){
+    r=await fetch('/api/check',{method:'POST',headers:hdrs({'Content-Type':'application/json'}),body:payload});
+    if(r.status===503||r.status===502){await new Promise(function(s){setTimeout(s,600+attempt*250);});continue;}
+    break;
+  }
+  if(!r||!r.ok||!r.body)return {ok:false,text:''};
+  var reader=r.body.getReader(),dec=new TextDecoder(),buf='',metaDone=false;
+  while(true){
+    var ch=await reader.read();
+    if(ch.done)break;
+    buf+=dec.decode(ch.value,{stream:true});
+    if(!metaDone){var nl=buf.indexOf('\n');if(nl<0)continue;buf=buf.slice(nl+1);metaDone=true;}
+    var lines=buf.split('\n');buf=lines.pop();
+    for(var i=0;i<lines.length;i++){
+      var L=lines[i].trim();
+      if(L.indexOf('data:')!==0)continue;
+      try{var ev=JSON.parse(L.slice(5));
+        if(ev.type==='content_block_delta'&&ev.delta&&ev.delta.type==='text_delta')acc+=ev.delta.text;
+      }catch(e){}
+    }
+  }
+  return {ok:acc.length>0,text:acc};
+}
+
+function scoreAi(c,text){
+  var missed=[],falsePos=[];
+  (c.must||[]).forEach(function(p){if(!mentioned(text,p))missed.push(p);});
+  (c.never||[]).forEach(function(p){if(flaggedIn(text,p))falsePos.push(p);});
+  return {
+    pass:missed.length===0&&falsePos.length===0,
+    missed:missed,falsePos:falsePos
+  };
+}
+
+function render(){
+  var tb=document.getElementById('tbody');
+  if(!results.length){tb.innerHTML='<tr><td class="hint">측정을 실행하면 결과가 표시됩니다.</td></tr>';return;}
+  var h='<tr><th>사례</th><th>구분</th><th>확인 내용</th><th>결과</th><th>비고</th></tr>';
+  results.forEach(function(r){
+    h+='<tr class="'+(r.pass?'pass':'fail')+'"><td>'+esc(r.id)+'</td><td>'+esc(r.cat)+'</td><td>'+esc(r.desc)+'</td>'+
+       '<td><span class="pill '+(r.pass?'p-ok':'p-no')+'">'+(r.pass?'통과':'실패')+'</span></td><td class="hint">'+esc(r.note||'')+'</td></tr>';
+  });
+  tb.innerHTML=h;
+  var ruleR=results.filter(function(r){return r.cat!=='AI검수';});
+  var aiR=results.filter(function(r){return r.cat==='AI검수';});
+  var pc=function(a){return a.length?Math.round(a.filter(function(r){return r.pass;}).length/a.length*100):null;};
+  var all=pc(results),ru=pc(ruleR),ai=pc(aiR);
+  var put=function(id,v,sub){var el=document.getElementById(id);el.textContent=(v===null?'–':v+'%');el.className='big '+(v===null?'':(v>=90?'ok':(v>=70?'warn':'bad')));if(sub)document.getElementById(id+'Sub').textContent=sub;};
+  put('sAll',all,results.filter(function(r){return r.pass;}).length+' / '+results.length+'건 통과');
+  put('sRule',ru,ruleR.length?ruleR.filter(function(r){return r.pass;}).length+' / '+ruleR.length+'건':'미측정');
+  put('sAi',ai,aiR.length?aiR.filter(function(r){return r.pass;}).length+' / '+aiR.length+'건':'미측정');
+  lastScore={all:all,rule:ru,ai:ai,total:results.length,passed:results.filter(function(r){return r.pass;}).length,
+             fails:results.filter(function(r){return !r.pass;}).map(function(r){return r.id;})};
+  document.getElementById('saveRun').disabled=false;
+}
+
+document.getElementById('runRule').onclick=function(){
+  results=runRules();setBar(1);
+  document.getElementById('progress').textContent='규칙 '+results.length+'건 측정 완료.';
+  render();compareWithPrev();
+};
+
+document.getElementById('runAll').onclick=async function(){
+  var b1=this,b2=document.getElementById('runRule');
+  b1.disabled=true;b2.disabled=true;
+  results=runRules();render();
+  var total=AI_CASES.length;
+  for(var i=0;i<total;i++){
+    var c=AI_CASES[i];
+    document.getElementById('progress').textContent='AI 검수 측정 중… ('+(i+1)+'/'+total+') '+c.desc;
+    setBar((i)/total);
+    var res=await runOneAi(c);
+    var s=res.ok?scoreAi(c,res.text):{pass:false,missed:['(응답 실패)'],falsePos:[]};
+    var note='';
+    if(s.missed.length)note+='못 잡음: '+s.missed.join(', ')+'  ';
+    if(s.falsePos.length)note+='오탐: '+s.falsePos.join(', ');
+    results.push({id:c.id,cat:c.cat,desc:c.desc,pass:s.pass,note:note});
+    render();
+  }
+  setBar(1);
+  document.getElementById('progress').textContent='전체 측정 완료 ('+results.length+'건).';
+  b1.disabled=false;b2.disabled=false;
+  compareWithPrev();
+};
+
+document.getElementById('saveRun').onclick=function(){
+  if(!lastScore)return;
+  fetch('/api/evalrun',{method:'POST',headers:hdrs({'Content-Type':'application/json'}),body:JSON.stringify(lastScore)})
+    .then(function(r){return r.json();})
+    .then(function(){document.getElementById('runNote').textContent='기록했습니다.';loadRuns();})
+    .catch(function(){document.getElementById('runNote').textContent='기록 실패';});
+};
+
+var prevRuns=[];
+function compareWithPrev(){
+  if(!lastScore||!prevRuns.length)return;
+  var prev=prevRuns[0];
+  var d=lastScore.all-(prev.all||0);
+  var el=document.getElementById('sPrev');
+  el.textContent=(d>0?'+':'')+d+'%p';
+  el.className='big '+(d>0?'ok':(d<0?'bad':''));
+  document.getElementById('sPrevSub').textContent=prev.at+' 회차 '+prev.all+'% 대비';
+}
+function loadRuns(){
+  fetch('/api/evalruns',{headers:hdrs()}).then(function(r){return r.json();}).then(function(d){
+    prevRuns=d.items||[];
+    var tb=document.getElementById('runs');
+    if(!prevRuns.length){tb.innerHTML='<tr><td class="hint">기록된 회차가 없습니다.</td></tr>';return;}
+    var h='<tr><th>측정 시각</th><th>종합</th><th>규칙</th><th>AI</th><th>통과</th><th>실패 사례</th></tr>';
+    prevRuns.forEach(function(r){
+      h+='<tr><td>'+esc(r.at)+'</td><td><b>'+(r.all==null?'–':r.all+'%')+'</b></td><td>'+(r.rule==null?'–':r.rule+'%')+'</td><td>'+(r.ai==null?'–':r.ai+'%')+'</td><td>'+r.passed+'/'+r.total+'</td><td class="hint">'+esc((r.fails||[]).join(', ')||'없음')+'</td></tr>';
+    });
+    tb.innerHTML=h;
+    compareWithPrev();
+  }).catch(function(){});
+}
+
+// 접속 코드
+var gate=document.getElementById('gate');
+function enter(c){
+  if(!c)return;
+  fetch('/api/auth',{method:'POST',headers:{'X-Access-Code':c}}).then(function(r){
+    if(r.ok){code=c;try{localStorage.setItem('lc.code',c);}catch(e){}gate.style.display='none';loadRuns();}
+    else document.getElementById('gateErr').textContent='코드가 올바르지 않습니다.';
+  });
+}
+document.getElementById('codeGo').onclick=function(){enter(document.getElementById('codeIn').value.trim());};
+document.getElementById('codeIn').addEventListener('keydown',function(e){if(e.key==='Enter')enter(this.value.trim());});
+try{var s=localStorage.getItem('lc.code');if(s)enter(s);}catch(e){}
+})();
+</script>
+</body>
+</html>

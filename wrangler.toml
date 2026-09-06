@@ -16,5 +16,5 @@ new_sqlite_classes = ["Relay"]
 
 [[rules]]
 type = "Text"
-globs = ["**/*.html"]
+globs = ["**/*.html", "**/*.txt"]
 fallthrough = true

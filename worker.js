@@ -3,6 +3,8 @@ import { INDEX, CHUNKS } from "./kb.js";
 import { EXPORT_CHUNKS } from "./exportkb.js";
 import UI_HTML from "./ui.html";
 import GUIDE_HTML from "./guide.html";
+import EVAL_HTML from "./eval.html";
+import RULES_JS from "./rules.lib.txt";
 
 // 위치 고정 중계기 - Anthropic 미지원 경유지(홍콩 등) 차단을 피하기 위해
 // 미국 동부에 상주하는 Durable Object가 업스트림 호출을 대신 수행한다
@@ -304,6 +306,48 @@ export default {
 
     if (request.method === "GET" && url.pathname === "/guide") {
       return new Response(GUIDE_HTML, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" } });
+    }
+
+    // 정확도 측정 페이지 (관리자용) - 화면 진입은 열려 있고 실제 측정은 접속 코드가 필요하다
+    if (request.method === "GET" && url.pathname === "/eval") {
+      return new Response(EVAL_HTML, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" } });
+    }
+
+    // 규칙 판정 로직 - 화면과 정확도 측정이 같은 파일을 쓴다
+    if (request.method === "GET" && url.pathname === "/rules.js") {
+      return new Response(RULES_JS, { headers: { "Content-Type": "application/javascript; charset=utf-8", "Cache-Control": "no-cache" } });
+    }
+
+    // 측정 회차 기록 - 고친 뒤 점수가 올랐는지 비교하기 위해 남긴다
+    if (url.pathname === "/api/evalrun" && request.method === "POST") {
+      if (!authorized(request, env)) return json({ error: "auth" }, 401);
+      let body;
+      try { body = await request.json(); } catch (e) { return json({ error: "bad_request" }, 400); }
+      const at = new Date().toLocaleString("ko-KR", { timeZone: "Asia/Seoul", month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
+      const id = "e:" + String(1e13 - Date.now()).padStart(13, "0");
+      const rec = {
+        at,
+        all: typeof body.all === "number" ? body.all : null,
+        rule: typeof body.rule === "number" ? body.rule : null,
+        ai: typeof body.ai === "number" ? body.ai : null,
+        total: Number(body.total) || 0,
+        passed: Number(body.passed) || 0,
+        fails: (Array.isArray(body.fails) ? body.fails : []).map((x) => String(x).slice(0, 12)).slice(0, 40),
+      };
+      await env.HIST.put(id, JSON.stringify(rec));
+      const list = await env.HIST.list({ prefix: "e:", limit: 100 });
+      for (let i = 30; i < list.keys.length; i++) await env.HIST.delete(list.keys[i].name);
+      return json({ ok: true });
+    }
+    if (url.pathname === "/api/evalruns" && request.method === "GET") {
+      if (!authorized(request, env)) return json({ error: "auth" }, 401);
+      const list = await env.HIST.list({ prefix: "e:", limit: 30 });
+      const items = [];
+      for (const k of list.keys) {
+        const v = await env.HIST.get(k.name);
+        if (v) { try { items.push(JSON.parse(v)); } catch (e) {} }
+      }
+      return json({ items });
     }
 
     if (request.method === "POST" && url.pathname === "/api/auth") {
