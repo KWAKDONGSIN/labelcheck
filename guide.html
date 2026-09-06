@@ -60,12 +60,20 @@ a.back{position:fixed;right:18px;bottom:18px;padding:10px 18px;background:var(--
 <div class="step"><span class="num">2</span><div>접속 코드를 입력합니다. 코드는 관리자(곽동신)에게 받으세요.</div></div>
 <div class="step"><span class="num">3</span><div>즐겨찾기(북마크)에 추가해 두면 다음부터 바로 열립니다. 접속 코드는 한 번 넣으면 같은 기기에서는 다시 묻지 않습니다.</div></div>
 <div class="tip">화면 왼쪽이 <b>입력하는 곳</b>, 오른쪽이 <b>결과가 나오는 곳</b>입니다. 이것만 기억하면 됩니다.</div>
+<h3>화면 위쪽 탭 세 개 — 하시려는 일을 고르세요</h3>
+<table>
+<tr><th>탭</th><th>이걸 고르세요</th></tr>
+<tr><td><b>문구 · 시안 검수</b></td><td>디자인 시안이나 문구가 규정에 걸리는지 볼 때, 표기사항 엑셀을 만들 때 (가장 많이 씁니다)</td></tr>
+<tr><td><b>영양성분 계산</b></td><td>검사성적서를 받아서 패키지에 넣을 영양성분 표시값을 만들 때</td></tr>
+<tr><td><b>이력 · 공유 문안</b></td><td>지난 검수 결과를 다시 볼 때, 동료와 문안을 주고받을 때</td></tr>
+</table>
+<div class="tip">궁금한 게 생기면 화면 오른쪽 위 <b>문의</b> 버튼을 누르세요. 어느 탭에서든 바로 열립니다.</div>
 </div>
 
 <h2 id="flow1">2. 일 순서 ① 거래처 자료가 오면 - 정보 불러오기 <span class="free">무료</span></h2>
 <div class="card">
 <p>거래처가 품목제조보고서나 보고번호를 보내오면, 타이핑할 필요 없이 식약처 공식 데이터베이스에서 바로 불러옵니다.</p>
-<div class="step"><span class="num">1</span><div><b class="k">식품안전나라 조회</b> 칸에서 종류를 고릅니다 — <b>보고번호</b>(제일 정확), <b>제품명</b>(번호를 모를 때), <b>바코드</b>(실물만 있을 때).</div></div>
+<div class="step"><span class="num">1</span><div><b>문구 · 시안 검수</b> 탭에서 <b class="k">[식품안전나라에서 불러오기]</b>를 누르면 조회 칸이 열립니다. 종류를 고르세요 — <b>보고번호</b>(제일 정확), <b>제품명</b>(번호를 모를 때), <b>바코드</b>(실물만 있을 때).</div></div>
 <div class="step"><span class="num">2</span><div>번호나 이름을 넣고 <b>조회</b>를 누르면 제품명·식품유형·제조사·소비기한·포장재질·원재료가 나옵니다.</div></div>
 <div class="step"><span class="num">3</span><div>결과 아래 <b class="k">입력창에 넣기</b>를 누르면 검수 입력창에 자동으로 들어갑니다.</div></div>
 <div class="tip">이 조회는 AI를 쓰지 않아서 <b>몇 번을 눌러도 비용이 0원</b>입니다. 부담 없이 쓰세요.</div>
@@ -75,7 +83,7 @@ a.back{position:fixed;right:18px;bottom:18px;padding:10px 18px;background:var(--
 <h2 id="flow2">3. 일 순서 ② 표기사항 초안 만들기 - 엑셀 자동 생성 <span class="paid">AI 사용</span></h2>
 <div class="card">
 <p>품목제조보고서와 영양성분 성적서로 컬러박스에 인쇄할 한글표기사항 엑셀을 자동으로 만듭니다.</p>
-<div class="step"><span class="num">1</span><div><b>파일 첨부</b> 칸에 품목제조보고서(PDF·사진·AI파일)를 넣습니다. 영양 성적서가 있으면 같이 넣으세요.</div></div>
+<div class="step"><span class="num">1</span><div><b class="k">[파일 첨부]</b> 버튼을 눌러 품목제조보고서(PDF·사진·AI파일)를 넣습니다. 영양 성적서가 있으면 같이 넣으세요.</div></div>
 <div class="step"><span class="num">2</span><div><b class="k">표기사항 엑셀 만들기</b> 버튼을 누릅니다.</div></div>
 <div class="step"><span class="num">3</span><div>1~2분 뒤 회사 서식(주표시면·정보표시면·배합비율)에 맞춘 엑셀 파일이 내려받아집니다. 열어서 확인·수정 후 사용하세요.</div></div>
 <div class="warn">자동 생성된 엑셀은 <b>초안</b>입니다. 보고번호·원재료 배합비율 숫자는 반드시 원본 보고서와 눈으로 대조하세요.</div>
@@ -106,7 +114,7 @@ a.back{position:fixed;right:18px;bottom:18px;padding:10px 18px;background:var(--
 <div class="card">
 <h3>영양성분표 계산기 <span class="free">무료</span></h3>
 <p>검사성적서의 <b>100g(ml)당 값</b>과 <b>1회 제공량</b>을 넣으면, 식약처 표시기준의 반올림 규칙과 1일 기준치 비율(%)을 자동 적용한 <b>패키지 표시값</b>을 만들어 줍니다. 지금까지 외주에 맡기던 계산이 3초에 끝납니다.</p>
-<p style="font-size:13.5px;color:var(--sub);">왼쪽 아래 접힌 메뉴를 누르면 열립니다. 성적서 값을 그대로 입력하세요 — 반올림하지 말고 소수점까지 그대로.</p>
+<p style="font-size:13.5px;color:var(--sub);">화면 위 <b>영양성분 계산</b> 탭에 있습니다. 1회 제공량과 총 내용량을 넣으면 "총 ○회 제공량"까지 자동으로 계산됩니다. 성적서 값은 반올림하지 말고 소수점까지 그대로 넣으세요.</p>
 <h3>식품안전나라 조회 <span class="free">무료</span></h3>
 <table>
 <tr><th>조회 종류</th><th>언제 쓰나</th></tr>
@@ -120,7 +128,7 @@ a.back{position:fixed;right:18px;bottom:18px;padding:10px 18px;background:var(--
 
 <h2 id="team">7. 함께 쓰기 - 이력 공유 · 문안 공유 · 문의</h2>
 <div class="card">
-<div class="step"><span class="num">1</span><div><b>검수 이력</b> — 검수할 때마다 자동 저장되고 <b>접속 코드를 아는 전원이 같은 이력</b>을 봅니다. 왼쪽 아래 "최근 검수 이력"에서 검색창으로 제품명을 찾아 클릭하면 그때 결과가 다시 열립니다. 불러와서 수정 후 재검수도 됩니다.</div></div>
+<div class="step"><span class="num">1</span><div><b>검수 이력</b> — 검수할 때마다 자동 저장되고 <b>접속 코드를 아는 전원이 같은 이력</b>을 봅니다. <b>이력 · 공유 문안</b> 탭에서 검색창으로 제품명을 찾아 클릭하면 그때 결과가 다시 열립니다. 불러와서 수정 후 재검수도 됩니다.</div></div>
 <div class="step"><span class="num">2</span><div><b>문안 공유 저장</b> — 작업 중인 문구를 이름 붙여 저장하면 상대방이 열어 보고 이어서 수정할 수 있습니다. "사장님 확인 부탁" 같은 용도로 쓰세요.</div></div>
 <div class="step"><span class="num">3</span><div><b>문의하기</b> — 궁금한 점을 남기면 관리자 카카오톡으로 즉시 알림이 갑니다.</div></div>
 </div>
