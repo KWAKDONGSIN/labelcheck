@@ -103,6 +103,17 @@ details.hist ul{padding-left:4px;}
       <textarea id="txt" spellcheck="false"></textarea>
       <div class="hint" id="draftNote" hidden></div>
       <div class="hint">제품명, 원재료명, 광고 문구를 그대로 붙여넣으세요. 일부만 넣어도 됩니다.</div>
+      <span class="lbl">🏛️ 식품안전나라 조회 (품목보고번호·제품명·바코드 → 공식 제조정보 · 무료)</span>
+      <div style="display:flex;gap:6px;">
+        <select id="fskKind" style="padding:6px;border:1px solid var(--line);border-radius:7px;font:inherit;font-size:12.5px;background:var(--paper);color:var(--ink);">
+          <option value="report">보고번호</option>
+          <option value="name">제품명</option>
+          <option value="barcode">바코드</option>
+        </select>
+        <input id="fskQ" type="text" placeholder="예: 품목제조보고번호 입력" style="flex:1;box-sizing:border-box;padding:6px 10px;border:1px solid var(--line);border-radius:7px;font:inherit;font-size:12.5px;background:var(--paper);color:var(--ink);">
+        <button id="fskGo" type="button" style="padding:6px 14px;border:1px solid var(--accent);border-radius:7px;background:var(--accent-soft);color:var(--accent);font:inherit;font-size:12.5px;cursor:pointer;font-weight:700;">조회</button>
+      </div>
+      <div id="fskOut" style="margin-top:6px;"></div>
       <span class="lbl">패키지 이미지 · PDF · AI 파일 (선택)</span>
       <input type="file" id="fileIn" multiple accept="image/*,.pdf,application/pdf,.ai">
       <div class="thumbs" id="thumbs"></div>
@@ -440,6 +451,57 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs
       var t='영양정보 (1회 제공량 '+srv+'g당)\n'+copyLines.join(', ');
       (navigator.clipboard?navigator.clipboard.writeText(t):Promise.reject()).then(function(){document.getElementById('nCopy').textContent='✅ 복사됨';}).catch(function(){});
     };
+  };
+
+  // === 식품안전나라 공공데이터 조회 ===
+  document.getElementById('fskKind').onchange=function(){
+    var ph={report:'예: 품목제조보고번호 입력',name:'예: 제품명 일부 입력',barcode:'예: 바코드 13자리 입력'};
+    document.getElementById('fskQ').placeholder=ph[this.value]||'';
+  };
+  function fskRow(r,mats){
+    var esc=function(s){return String(s||'').replace(/</g,'&lt;');};
+    var lines=[];
+    lines.push('제품명: '+(r.PRDLST_NM||''));
+    if(r.PRDLST_DCNM)lines.push('식품유형: '+r.PRDLST_DCNM);
+    if(r.BSSH_NM)lines.push('제조사: '+r.BSSH_NM);
+    if(r.PRDLST_REPORT_NO)lines.push('품목보고번호: '+r.PRDLST_REPORT_NO);
+    if(r.POG_DAYCNT)lines.push('소비기한: '+r.POG_DAYCNT);
+    if(r.FRMLC_MTRQLT)lines.push('포장재질: '+r.FRMLC_MTRQLT);
+    if(r.RAWMTRL_NM)lines.push('원재료: '+r.RAWMTRL_NM);
+    if(r.BAR_CD)lines.push('바코드: '+r.BAR_CD);
+    if(mats&&mats.length){
+      var ms=mats.map(function(m){return m.RAWMTRL_NM||'';}).filter(Boolean);
+      if(ms.length)lines.push('원재료(보고서): '+ms.join(', '));
+    }
+    var txt=lines.join('\n');
+    var html='<div style="border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-top:4px;font-size:12.5px;background:var(--paper);">';
+    html+=lines.map(function(l){return esc(l);}).join('<br>');
+    html+='<br><button type="button" class="fskUse" data-txt="'+encodeURIComponent(txt)+'" style="margin-top:6px;padding:4px 10px;border:1px solid var(--accent);border-radius:6px;background:var(--accent-soft);color:var(--accent);font:inherit;font-size:11.5px;cursor:pointer;font-weight:700;">📥 입력창에 넣기</button></div>';
+    return html;
+  }
+  document.getElementById('fskGo').onclick=function(){
+    var q=document.getElementById('fskQ').value.trim();
+    var out=document.getElementById('fskOut');
+    if(!q){out.innerHTML='<p class="hint">조회할 값을 입력하세요.</p>';return;}
+    out.innerHTML='<p class="hint">식품안전나라 조회 중…</p>';
+    fetch('/api/lookup',{method:'POST',headers:hdrs({'Content-Type':'application/json'}),
+      body:JSON.stringify({kind:document.getElementById('fskKind').value,q:q})})
+      .then(function(r){return r.json();})
+      .then(function(d){
+        if(d.error){out.innerHTML='<p class="hint">조회 실패: '+(d.message||d.error)+'</p>';return;}
+        if(!d.main||!d.main.length){out.innerHTML='<p class="hint">조회 결과가 없습니다. 번호·이름을 확인해주세요.'+(d.code&&d.code!=='INFO-200'?' ('+d.code+')':'')+'</p>';return;}
+        var html='<p class="hint">'+(d.src||'')+' · '+d.main.length+'건'+(d.total&&+d.total>d.main.length?' (전체 '+d.total+'건 중)':'')+'</p>';
+        d.main.slice(0,5).forEach(function(r){html+=fskRow(r,d.materials);});
+        out.innerHTML=html;
+        [].forEach.call(out.querySelectorAll('.fskUse'),function(b){
+          b.onclick=function(){
+            var t=document.getElementById('txt');
+            t.value=(t.value?t.value+'\n\n':'')+decodeURIComponent(b.getAttribute('data-txt'));
+            t.dispatchEvent(new Event('input'));
+          };
+        });
+      })
+      .catch(function(){out.innerHTML='<p class="hint">조회 실패 - 잠시 후 다시 시도해주세요.</p>';});
   };
 
   // === 문의하기 ===

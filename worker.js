@@ -305,6 +305,46 @@ export default {
       return json({ colo: request.cf && request.cf.colo, upstream: up.status, detail });
     }
 
+    // 식품안전나라 공공데이터 조회 - 품목보고번호/제품명/바코드 (AI 미사용, 무료)
+    if (url.pathname === "/api/lookup" && request.method === "POST") {
+      if (!authorized(request, env)) return json({ error: "auth" }, 401);
+      if (!env.FSK_KEY) return json({ error: "no_fsk_key", message: "식품안전나라 인증키가 설정되지 않았습니다." }, 500);
+      let body;
+      try { body = await request.json(); } catch (e) { return json({ error: "bad_request" }, 400); }
+      const kind = String(body.kind || "report").slice(0, 10);
+      const q = String(body.q || "").trim().slice(0, 60);
+      if (!q) return json({ error: "empty", message: "조회할 값을 입력해주세요." }, 400);
+      const fsk = async (svc, param) => {
+        const res = await fetch("https://openapi.foodsafetykorea.go.kr/api/" + String(env.FSK_KEY).trim() + "/" + svc + "/json/1/10/" + param);
+        const txt = await res.text();
+        let data; try { data = JSON.parse(txt); } catch (e) { return { rows: [], total: "0", err: txt.slice(0, 150) }; }
+        const b = data[svc] || {};
+        return { rows: b.row || [], total: b.total_count || "0", code: b.RESULT ? b.RESULT.CODE : "" };
+      };
+      try {
+        if (kind === "report") {
+          // 식품 → 축산물 → 건기식 순으로 품목보고번호 조회
+          let main = await fsk("I1250", "PRDLST_REPORT_NO=" + encodeURIComponent(q));
+          let src = "식품(첨가물)품목제조보고";
+          if (!main.rows.length) { main = await fsk("I1310", "PRDLST_REPORT_NO=" + encodeURIComponent(q)); src = "축산물 품목제조정보"; }
+          if (!main.rows.length) { main = await fsk("I0030", "PRDLST_REPORT_NO=" + encodeURIComponent(q)); src = "건강기능식품 품목제조신고"; }
+          const mat = await fsk("C002", "PRDLST_REPORT_NO=" + encodeURIComponent(q));
+          return json({ main: main.rows, materials: mat.rows, total: main.total, src: main.rows.length ? src : "", code: main.code || "", err: main.err || "" });
+        }
+        if (kind === "name") {
+          const main = await fsk("I1250", "PRDLST_NM=" + encodeURIComponent(q));
+          return json({ main: main.rows, total: main.total, src: "식품(첨가물)품목제조보고", code: main.code || "" });
+        }
+        if (kind === "barcode") {
+          const main = await fsk("C005", "BAR_CD=" + encodeURIComponent(q));
+          return json({ main: main.rows, total: main.total, src: "바코드연계제품정보", code: main.code || "" });
+        }
+        return json({ error: "bad_kind" }, 400);
+      } catch (e) {
+        return json({ error: "fsk_fail", message: "식품안전나라 조회 실패: " + String(e).slice(0, 120) }, 502);
+      }
+    }
+
     if (request.method === "GET" && url.pathname === "/api/status") {
       if (!authorized(request, env)) return json({ error: "auth" }, 401);
       return json({
