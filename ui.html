@@ -89,7 +89,7 @@ details.hist ul{padding-left:4px;}
   </div>
 </div>
 <div class="wrap">
-  <header class="top"><h1>더가득 라벨체크</h1><span class="tag">식품 표시사항 · 광고 문구 규정 검수 · 수출 라벨 점검</span></header>
+  <header class="top"><h1>더가득 라벨체크</h1><span class="tag">식품 표시사항 · 광고 문구 규정 검수 · 수출 라벨 점검</span><a href="/guide" target="_blank" style="margin-left:auto;padding:5px 12px;border:1px solid var(--accent);border-radius:7px;background:var(--accent-soft);color:var(--accent);font-size:12px;font-weight:700;text-decoration:none;white-space:nowrap;">📖 사용 가이드</a></header>
   <p class="kbline" id="kbline">지식베이스 확인 중…</p>
   <div class="cols">
     <section class="panel">
@@ -109,6 +109,8 @@ details.hist ul{padding-left:4px;}
           <option value="report">보고번호</option>
           <option value="name">제품명</option>
           <option value="barcode">바코드</option>
+          <option value="recall">회수·판매중지</option>
+          <option value="penalty">행정처분(업체)</option>
         </select>
         <input id="fskQ" type="text" placeholder="예: 품목제조보고번호 입력" style="flex:1;box-sizing:border-box;padding:6px 10px;border:1px solid var(--line);border-radius:7px;font:inherit;font-size:12.5px;background:var(--paper);color:var(--ink);">
         <button id="fskGo" type="button" style="padding:6px 14px;border:1px solid var(--accent);border-radius:7px;background:var(--accent-soft);color:var(--accent);font:inherit;font-size:12.5px;cursor:pointer;font-weight:700;">조회</button>
@@ -455,13 +457,13 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs
 
   // === 식품안전나라 공공데이터 조회 ===
   document.getElementById('fskKind').onchange=function(){
-    var ph={report:'예: 품목제조보고번호 입력',name:'예: 제품명 일부 입력',barcode:'예: 바코드 13자리 입력'};
+    var ph={report:'예: 품목제조보고번호 입력',name:'예: 제품명 일부 입력',barcode:'예: 바코드 13자리 입력',recall:'제품명·업체명·보고번호·바코드로 회수 이력 검색',penalty:'업체명으로 행정처분 이력 검색'};
     document.getElementById('fskQ').placeholder=ph[this.value]||'';
   };
   function fskRow(r,mats){
     var esc=function(s){return String(s||'').replace(/</g,'&lt;');};
     var lines=[];
-    lines.push('제품명: '+(r.PRDLST_NM||''));
+    if(r.PRDLST_NM)lines.push('제품명: '+r.PRDLST_NM);
     if(r.PRDLST_DCNM)lines.push('식품유형: '+r.PRDLST_DCNM);
     if(r.BSSH_NM)lines.push('제조사: '+r.BSSH_NM);
     if(r.PRDLST_REPORT_NO)lines.push('품목보고번호: '+r.PRDLST_REPORT_NO);
@@ -469,6 +471,18 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs
     if(r.FRMLC_MTRQLT)lines.push('포장재질: '+r.FRMLC_MTRQLT);
     if(r.RAWMTRL_NM)lines.push('원재료: '+r.RAWMTRL_NM);
     if(r.BAR_CD)lines.push('바코드: '+r.BAR_CD);
+    if(r.PRDTNM)lines.push('제품명: '+r.PRDTNM);
+    if(r.BSSHNM)lines.push('업체명: '+r.BSSHNM);
+    if(r.PRDLST_TYPE)lines.push('제품 구분: '+r.PRDLST_TYPE);
+    if(r.RTRVLPRVNS)lines.push('회수 사유: '+r.RTRVLPRVNS);
+    if(r.RTRVL_GRDCD_NM)lines.push('회수 등급: '+r.RTRVL_GRDCD_NM);
+    if(r.BRCDNO)lines.push('바코드: '+r.BRCDNO);
+    if(r.DISTBTMLMT)lines.push('소비기한: '+r.DISTBTMLMT);
+    if(r.PRCSCITYPOINT_BSSHNM)lines.push('업체명: '+r.PRCSCITYPOINT_BSSHNM);
+    if(r.DSPS_TYPECD_NM)lines.push('처분 유형: '+r.DSPS_TYPECD_NM);
+    if(r.VILTCN)lines.push('위반 내용: '+r.VILTCN);
+    if(r.DSPS_BGNDT)lines.push('처분 기간: '+r.DSPS_BGNDT+(r.DSPS_ENDDT?' ~ '+r.DSPS_ENDDT:''));
+    if(r.ADDR&&!r.PRDLST_NM)lines.push('소재지: '+r.ADDR);
     if(mats&&mats.length){
       var ms=mats.map(function(m){return m.RAWMTRL_NM||'';}).filter(Boolean);
       if(ms.length)lines.push('원재료(보고서): '+ms.join(', '));
@@ -781,6 +795,37 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs
     [/숙취\s*해소/,'중간','실증자료 갖춘 경우만 제한적 허용'],
     [/부작용\s*(없|제로)/,'높음','절대적 안전성 보장 표현']
   ];
+  // 입력 속 보고번호·바코드를 식품안전나라 공식 DB와 자동 대조 (비동기 - 결과가 나오는 대로 목록에 추가)
+  function fskCross(text,list){
+    var digits=text.replace(/[\s-]/g,'');
+    var bar=(digits.match(/880\d{10}/)||[])[0]||'';
+    var repCands=(digits.match(/\d{9,15}/g)||[]).filter(function(d){return d!==bar;});
+    var rep=repCands.length?repCands[0]:'';
+    var norm=function(s){return String(s||'').replace(/[\s()\[\]{}·,.·]/g,'');};
+    var add=function(cls,tag,html){var li=document.createElement('li');li.style.cssText='font-size:12.5px;margin:3px 0;';li.innerHTML='<span class="badge '+cls+'">'+tag+'</span>'+html;list.appendChild(li);};
+    var q=function(kind,val){return fetch('/api/lookup',{method:'POST',headers:hdrs({'Content-Type':'application/json'}),body:JSON.stringify({kind:kind,q:val})}).then(function(r){return r.json();});};
+    if(rep){
+      q('report',rep).then(function(d){
+        if(!d.main||!d.main.length){add('b-mid','공식DB','보고번호 '+rep+' — 식품안전나라에서 조회되지 않음. 번호를 확인하세요.');return;}
+        var r=d.main[0];var nm=r.PRDLST_NM||'';
+        var match=nm&&norm(text).indexOf(norm(nm))>=0;
+        add(match?'b-low':'b-mid','공식DB','보고번호 '+rep+' → "'+esc(nm)+'" ('+esc(r.PRDLST_DCNM||'')+', '+esc(r.BSSH_NM||'')+') — '+(match?'입력 문구의 제품명과 일치':'⚠ 등록 제품명이 입력 문구에 안 보임 - 라벨 제품명과 신고명이 다른지 확인'));
+      }).catch(function(){});
+      q('recall',rep).then(function(d){
+        if(d.main&&d.main.length){var r=d.main[0];add('b-hi','회수이력','⚠ 이 보고번호는 회수·판매중지 목록에 있습니다 - "'+esc(r.PRDTNM||'')+'" 사유: '+esc(r.RTRVLPRVNS||''));}
+      }).catch(function(){});
+    }
+    if(bar){
+      q('barcode',bar).then(function(d){
+        if(!d.main||!d.main.length){add('b-mid','공식DB','바코드 '+bar+' — 등록 제품이 조회되지 않음 (신규 바코드면 정상일 수 있음)');return;}
+        var r=d.main[0];add('b-low','공식DB','바코드 '+bar+' → 등록 제품 "'+esc(r.PRDLST_NM||'')+'" ('+esc(r.BSSH_NM||'')+')');
+      }).catch(function(){});
+      q('recall',bar).then(function(d){
+        if(d.main&&d.main.length){add('b-hi','회수이력','⚠ 이 바코드는 회수·판매중지 목록에 있습니다 - "'+esc(d.main[0].PRDTNM||'')+'"');}
+      }).catch(function(){});
+    }
+  }
+
   function prescan(text,warns){
     var box=document.getElementById('prescan'),list=document.getElementById('prescanList');
     list.innerHTML='';var hits=0;
@@ -828,6 +873,8 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs
       lb.innerHTML='<span class="badge '+(ok?'b-low':'b-hi')+'">바코드</span>'+bc+' — '+(ok?'체크섬 정상':'⚠ 체크섬 불일치 - 숫자 오타 가능성');
       list.appendChild(lb);
     });
+    // ③ 식품안전나라 공식 DB 자동 대조 - 보고번호·바코드가 보이면 등록정보·회수이력과 교차 검증 (무료)
+    fskCross(text,list);
     RULES.forEach(function(r){
       var m=text.match(r[0]);
       if(m){hits++;var li=document.createElement('li');li.style.cssText='font-size:12.5px;margin:3px 0;';

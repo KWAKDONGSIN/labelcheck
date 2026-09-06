@@ -2,6 +2,7 @@
 import { INDEX, CHUNKS } from "./kb.js";
 import { EXPORT_CHUNKS } from "./exportkb.js";
 import UI_HTML from "./ui.html";
+import GUIDE_HTML from "./guide.html";
 
 // 위치 고정 중계기 - Anthropic 미지원 경유지(홍콩 등) 차단을 피하기 위해
 // 미국 동부에 상주하는 Durable Object가 업스트림 호출을 대신 수행한다
@@ -33,12 +34,23 @@ async function relayFetch(env, target, headers, body) {
 const BASE_IDS = ["L1-8", "L1-8_2", "L4-2-1", "L4-2-2", "L4-2-3", "L4-2-4", "C-case"];
 const HFF_BASE = ["C-hff1", "C-hff2", "L3-4", "L3-5-1"];
 
+// 키워드가 몇 개 청크에 등장하는지 집계 - 흔한 키워드는 변별력이 낮으므로 점수를 낮춘다
+let KW_DF = null;
+function kwDf() {
+  if (KW_DF) return KW_DF;
+  KW_DF = {};
+  for (const it of INDEX.items || []) for (const k of new Set(it.kw || [])) KW_DF[k] = (KW_DF[k] || 0) + 1;
+  return KW_DF;
+}
+
 function pickChunks(text, ptype) {
+  const df = kwDf();
+  const n = (INDEX.items || []).length || 1;
   const scored = [];
   for (const it of INDEX.items || []) {
     let s = 0;
     for (const k of it.kw || []) {
-      if (k && text.includes(k)) s += 2;
+      if (k && text.includes(k)) s += 1 + Math.log(1 + n / (df[k] || 1));
     }
     if (BASE_IDS.includes(it.id)) s += 3;
     if (ptype === "건강기능식품") {
@@ -290,6 +302,10 @@ export default {
       return new Response(UI_HTML, { headers: { "Content-Type": "text/html; charset=utf-8" } });
     }
 
+    if (request.method === "GET" && url.pathname === "/guide") {
+      return new Response(GUIDE_HTML, { headers: { "Content-Type": "text/html; charset=utf-8" } });
+    }
+
     if (request.method === "POST" && url.pathname === "/api/auth") {
       return json({ ok: authorized(request, env) }, authorized(request, env) ? 200 : 401);
     }
@@ -314,14 +330,34 @@ export default {
       const kind = String(body.kind || "report").slice(0, 10);
       const q = String(body.q || "").trim().slice(0, 60);
       if (!q) return json({ error: "empty", message: "조회할 값을 입력해주세요." }, 400);
-      const fsk = async (svc, param) => {
-        const res = await fetch("https://openapi.foodsafetykorea.go.kr/api/" + String(env.FSK_KEY).trim() + "/" + svc + "/json/1/10/" + param);
+      const fsk = async (svc, param, range) => {
+        // 동일 조회는 하루 캐시 - 정부 API 시간당 100회 제한 보호 + 응답 속도 개선
+        const ck = "fsk:" + svc + ":" + (param || "all");
+        const hit = await env.HIST.get(ck);
+        if (hit) { try { return JSON.parse(hit); } catch (e) {} }
+        const res = await fetch("https://openapi.foodsafetykorea.go.kr/api/" + String(env.FSK_KEY).trim() + "/" + svc + "/json/" + (range || "1/10") + (param ? "/" + param : ""));
         const txt = await res.text();
         let data; try { data = JSON.parse(txt); } catch (e) { return { rows: [], total: "0", err: txt.slice(0, 150) }; }
         const b = data[svc] || {};
-        return { rows: b.row || [], total: b.total_count || "0", code: b.RESULT ? b.RESULT.CODE : "" };
+        const out = { rows: b.row || [], total: b.total_count || "0", code: b.RESULT ? b.RESULT.CODE : "" };
+        if (out.rows.length || out.code === "INFO-200") {
+          await env.HIST.put(ck, JSON.stringify(out), { expirationTtl: param ? 86400 : 21600 });
+        }
+        return out;
       };
+      // 필터 파라미터가 없는 API는 전체를 받아 서버에서 직접 거른다
+      const filterRows = (rows, q, fields) => rows.filter((r) => fields.some((f) => String(r[f] || "").includes(q))).slice(0, 10);
       try {
+        if (kind === "recall") {
+          const all = await fsk("I0490", "", "1/1000");
+          const rows = filterRows(all.rows, q, ["PRDTNM", "BSSHNM", "PRDLST_REPORT_NO", "BRCDNO", "LCNS_NO"]);
+          return json({ main: rows, total: String(rows.length), src: "회수·판매중지 정보 (유통 중 " + all.total + "건)", code: all.code || "" });
+        }
+        if (kind === "penalty") {
+          const all = await fsk("I0480", "", "1/1000");
+          const rows = filterRows(all.rows, q, ["PRCSCITYPOINT_BSSHNM", "LCNS_NO", "VILTCN"]);
+          return json({ main: rows, total: String(rows.length), src: "행정처분 결과 (식품제조가공업)", code: all.code || "" });
+        }
         if (kind === "report") {
           // 식품 → 축산물 → 건기식 순으로 품목보고번호 조회
           let main = await fsk("I1250", "PRDLST_REPORT_NO=" + encodeURIComponent(q));
