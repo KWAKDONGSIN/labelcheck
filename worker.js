@@ -299,11 +299,11 @@ export default {
     const url = new URL(request.url);
 
     if (request.method === "GET" && (url.pathname === "/" || url.pathname === "/index.html")) {
-      return new Response(UI_HTML, { headers: { "Content-Type": "text/html; charset=utf-8" } });
+      return new Response(UI_HTML, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" } });
     }
 
     if (request.method === "GET" && url.pathname === "/guide") {
-      return new Response(GUIDE_HTML, { headers: { "Content-Type": "text/html; charset=utf-8" } });
+      return new Response(GUIDE_HTML, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" } });
     }
 
     if (request.method === "POST" && url.pathname === "/api/auth") {
@@ -348,6 +348,9 @@ export default {
       // 필터 파라미터가 없는 API는 전체를 받아 서버에서 직접 거른다
       const filterRows = (rows, q, fields) => rows.filter((r) => fields.some((f) => String(r[f] || "").includes(q))).slice(0, 10);
       try {
+        if ((kind === "recall" || kind === "penalty") && q.length < 2) {
+          return json({ error: "short", message: "두 글자 이상 입력해주세요." }, 400);
+        }
         if (kind === "recall") {
           const all = await fsk("I0490", "", "1/1000");
           const rows = filterRows(all.rows, q, ["PRDTNM", "BSSHNM", "PRDLST_REPORT_NO", "BRCDNO", "LCNS_NO"]);
@@ -364,7 +367,7 @@ export default {
           let src = "식품(첨가물)품목제조보고";
           if (!main.rows.length) { main = await fsk("I1310", "PRDLST_REPORT_NO=" + encodeURIComponent(q)); src = "축산물 품목제조정보"; }
           if (!main.rows.length) { main = await fsk("I0030", "PRDLST_REPORT_NO=" + encodeURIComponent(q)); src = "건강기능식품 품목제조신고"; }
-          const mat = await fsk("C002", "PRDLST_REPORT_NO=" + encodeURIComponent(q));
+          const mat = main.rows.length ? await fsk("C002", "PRDLST_REPORT_NO=" + encodeURIComponent(q)) : { rows: [] };
           return json({ main: main.rows, materials: mat.rows, total: main.total, src: main.rows.length ? src : "", code: main.code || "", err: main.err || "" });
         }
         if (kind === "name") {
@@ -519,6 +522,14 @@ export default {
         if (v) items.push({ id: k.name, ...JSON.parse(v) });
       }
       return json({ items });
+    }
+
+    if (url.pathname.startsWith("/api/inquiry/") && request.method === "DELETE") {
+      if (!authorized(request, env)) return json({ error: "auth" }, 401);
+      const inqId = decodeURIComponent(url.pathname.slice("/api/inquiry/".length));
+      if (!inqId.startsWith("i:")) return json({ error: "bad_id" }, 400);
+      await env.HIST.delete(inqId);
+      return json({ ok: true });
     }
 
     // 공유 작업 문안(드래프트) - 같은 접속 코드 사용자끼리 함께 보고 수정

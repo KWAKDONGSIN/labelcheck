@@ -5,28 +5,34 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>더가득 라벨체크</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" media="print" onload="this.media='all'">
 <style>
-:root{--paper:#FAFAF6;--card:#FFF;--ink:#2A2E28;--sub:#6B7065;--line:#DAD9CE;--accent:#4C7A57;--accent-ink:#FFF;--accent-soft:#EAF1EB;--hi:#B03A2E;--hi-bg:#F9ECEA;--mid:#8A6413;--mid-bg:#F7EFDC;--low:#3E6B49;--low-bg:#E8F0E9;--mono:#EFEEE6;}
-body{background:var(--paper);color:var(--ink);font-family:'Malgun Gothic','Apple SD Gothic Neo',sans-serif;margin:0;line-height:1.65;}
-.wrap{max-width:1040px;margin:0 auto;padding:26px 20px 60px;}
-header.top{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;border-bottom:2px solid var(--accent);padding-bottom:13px;margin-bottom:6px;}
-h1{font-size:23px;font-weight:700;margin:0;}
-.tag{font-size:12.5px;color:var(--sub);}
-.kbline{font-size:11.5px;color:var(--sub);margin:0 0 18px;}
-.kbline b{color:var(--accent);}
+:root{--paper:#f6f5f4;--card:#fff;--ink:#191918;--sub:#615d59;--faint:#a39e98;--line:#e6e6e6;--accent:#0075de;--accent-active:#005bab;--accent-ink:#fff;--accent-soft:#f0f7fd;--hi:#d44c47;--hi-bg:#fdebec;--mid:#cb912f;--mid-bg:#fbf3db;--low:#448361;--low-bg:#edf3ec;--mono:#f1f1ef;--shadow-1:0 0.2px 1px rgba(0,0,0,.02),0 1px 3px rgba(0,0,0,.03),0 2px 8px rgba(0,0,0,.04);--shadow-2:0 2px 6px rgba(0,0,0,.05),0 10px 24px rgba(0,0,0,.07),0 23px 52px rgba(0,0,0,.05);}
+body{background:var(--paper);color:var(--ink);font-family:'Pretendard Variable',Pretendard,Inter,-apple-system,'Malgun Gothic','Apple SD Gothic Neo',sans-serif;margin:0;line-height:1.6;-webkit-font-smoothing:antialiased;}
+.wrap{max-width:1080px;margin:0 auto;padding:28px 24px 64px;}
+header.top{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding-bottom:16px;margin-bottom:8px;}
+h1{font-size:24px;font-weight:700;margin:0;letter-spacing:-0.6px;}
+.tag{font-size:13px;color:var(--sub);}
+.kbline{font-size:12px;color:var(--faint);margin:0 0 20px;}
+.kbline b{color:var(--sub);font-weight:600;}
 .cols{display:grid;grid-template-columns:minmax(300px,5fr) minmax(320px,7fr);gap:20px;align-items:start;}
 @media (max-width:840px){.cols{grid-template-columns:1fr;}}
-.panel{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:17px 17px 19px;}
-.lbl{display:block;font-size:12px;font-weight:700;letter-spacing:0.07em;color:var(--sub);margin:15px 0 6px;}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:20px 20px 22px;}
+.lbl{display:block;font-size:12px;font-weight:600;letter-spacing:0.125px;color:var(--sub);margin:16px 0 6px;}
 .lbl:first-child{margin-top:0;}
 .seg{display:flex;gap:8px;}
-.seg button{flex:1;padding:9px 6px;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;font:inherit;font-size:13.5px;cursor:pointer;}
-.seg button.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:700;}
-textarea{width:100%;box-sizing:border-box;min-height:220px;resize:vertical;padding:12px;border:1px solid var(--line);border-radius:8px;background:var(--paper);color:var(--ink);font:inherit;font-size:13.5px;}
-.hint{font-size:12px;color:var(--sub);margin-top:5px;}
+.seg button{flex:1;padding:9px 6px;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;font:inherit;font-size:13.5px;cursor:pointer;transition:background .12s;}
+.seg button:hover{background:var(--mono);}
+.seg button.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600;}
+textarea{width:100%;box-sizing:border-box;min-height:220px;resize:vertical;padding:12px;border:1px solid var(--line);border-radius:5px;background:var(--card);color:var(--ink);font:inherit;font-size:14px;line-height:1.6;}
+textarea:focus,input:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:var(--shadow-1);}
+.hint{font-size:12.5px;color:var(--faint);margin-top:5px;}
 .thumbs{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;}
-.thumbs img{width:62px;height:62px;object-fit:cover;border-radius:6px;border:1px solid var(--line);}
-.go{width:100%;margin-top:16px;padding:13px;border:none;border-radius:8px;background:var(--accent);color:var(--accent-ink);font:inherit;font-size:15px;font-weight:700;cursor:pointer;}
+.thumbs img{width:62px;height:62px;object-fit:cover;border-radius:8px;border:1px solid var(--line);}
+.go{width:100%;margin-top:16px;padding:13px;border:none;border-radius:9999px;background:var(--accent);color:var(--accent-ink);font:inherit;font-size:15px;font-weight:600;cursor:pointer;transition:background .12s,transform .08s;}
+.go:hover{background:var(--accent-active);}
+.go:active{transform:scale(0.98);}
 .go:disabled{opacity:0.55;}
 .chk{display:flex;align-items:center;gap:7px;margin-top:10px;font-size:12.5px;color:var(--sub);cursor:pointer;}
 .result{min-height:300px;}
@@ -37,10 +43,10 @@ textarea{width:100%;box-sizing:border-box;min-height:220px;resize:vertical;paddi
 .tblwrap{overflow-x:auto;margin:10px 0;}
 .result table{border-collapse:collapse;width:100%;font-size:12.5px;}
 .result th,.result td{border:1px solid var(--line);padding:7px 9px;text-align:left;vertical-align:top;line-height:1.55;}
-.result th{background:var(--accent-soft);font-weight:700;white-space:nowrap;}
+.result th{background:var(--mono);font-weight:600;white-space:nowrap;font-size:11.5px;letter-spacing:0.125px;color:var(--sub);}
 .result tr:nth-child(odd) td{background:var(--paper);}
 .result .quote{border-left:3px solid var(--accent);background:var(--accent-soft);padding:7px 11px;margin:5px 0;border-radius:0 6px 6px 0;}
-.badge{display:inline-block;font-size:11.5px;font-weight:700;padding:1px 8px;border-radius:20px;margin-right:6px;}
+.badge{display:inline-block;font-size:11.5px;font-weight:600;padding:1px 8px;border-radius:9999px;margin-right:6px;}
 .b-hi{background:var(--hi-bg);color:var(--hi);}
 .b-mid{background:var(--mid-bg);color:var(--mid);}
 .b-low{background:var(--low-bg);color:var(--low);}
@@ -56,11 +62,12 @@ details.refs li{font-size:12px;color:var(--sub);margin:4px 0;}
 #prescan{margin-bottom:13px;padding-bottom:11px;border-bottom:1px dashed var(--line);}
 #prescan ul{padding-left:0;list-style:none;margin:4px 0 0;}
 #gate{position:fixed;inset:0;background:var(--paper);display:flex;align-items:center;justify-content:center;z-index:10;}
-#gate .box{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:30px 28px;max-width:340px;width:90%;text-align:center;}
-#gate h2{font-size:18px;margin:0 0 8px;}
-#gate p{font-size:13px;color:var(--sub);margin:0 0 16px;}
-#gate input{width:100%;box-sizing:border-box;padding:11px;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:15px;text-align:center;letter-spacing:0.15em;}
-#gate button{width:100%;margin-top:12px;padding:11px;border:none;border-radius:8px;background:var(--accent);color:var(--accent-ink);font:inherit;font-size:14px;font-weight:700;cursor:pointer;}
+#gate .box{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:34px 30px;max-width:340px;width:90%;text-align:center;box-shadow:var(--shadow-2);}
+#gate h2{font-size:20px;margin:0 0 8px;letter-spacing:-0.4px;}
+#gate p{font-size:13.5px;color:var(--sub);margin:0 0 18px;}
+#gate input{width:100%;box-sizing:border-box;padding:11px;border:1px solid var(--line);border-radius:5px;font:inherit;font-size:15px;text-align:center;letter-spacing:0.15em;}
+#gate button{width:100%;margin-top:12px;padding:11px;border:none;border-radius:9999px;background:var(--accent);color:var(--accent-ink);font:inherit;font-size:14px;font-weight:600;cursor:pointer;transition:background .12s;}
+#gate button:hover{background:var(--accent-active);}
 #gateErr{color:var(--hi);font-size:12.5px;margin-top:10px;min-height:16px;}
 .actrow{display:flex;gap:8px;margin-top:12px;padding-top:10px;border-top:1px dashed var(--line);}
 .actrow[hidden]{display:none;}
@@ -89,7 +96,7 @@ details.hist ul{padding-left:4px;}
   </div>
 </div>
 <div class="wrap">
-  <header class="top"><h1>더가득 라벨체크</h1><span class="tag">식품 표시사항 · 광고 문구 규정 검수 · 수출 라벨 점검</span><a href="/guide" target="_blank" style="margin-left:auto;padding:5px 12px;border:1px solid var(--accent);border-radius:7px;background:var(--accent-soft);color:var(--accent);font-size:12px;font-weight:700;text-decoration:none;white-space:nowrap;">📖 사용 가이드</a></header>
+  <header class="top"><h1>더가득 라벨체크</h1><span class="tag">식품 표시사항 · 광고 문구 규정 검수 · 수출 라벨 점검</span><a href="/guide" target="_blank" style="margin-left:auto;padding:5px 12px;border:1px solid var(--accent);border-radius:7px;background:var(--accent-soft);color:var(--accent);font-size:12px;font-weight:700;text-decoration:none;white-space:nowrap;">사용 가이드</a></header>
   <p class="kbline" id="kbline">지식베이스 확인 중…</p>
   <div class="cols">
     <section class="panel">
@@ -98,12 +105,12 @@ details.hist ul{padding-left:4px;}
       <div class="seg" style="margin-top:8px;"><button id="tU" type="button">수출 · 미국 FDA</button><button id="tJ" type="button">수출 · 일본</button></div>
       <div class="hint" id="exportHint" hidden>수출 검수는 핵심 요약 자료 기반의 참고용 사전 점검입니다. 최종 라벨은 현지 수입자·전문가 검토로 확정하세요.</div>
       <span class="lbl">패키지·상세페이지 문구 <span class="exlabel" id="exTag">예시</span>
-        <button id="draftSave" type="button" style="float:right;padding:3px 10px;border:1px solid var(--accent);border-radius:6px;background:var(--accent-soft);color:var(--accent);font:inherit;font-size:11.5px;cursor:pointer;font-weight:700;">💾 문안 공유 저장</button>
+        <button id="draftSave" type="button" style="float:right;padding:3px 10px;border:1px solid var(--accent);border-radius:6px;background:var(--accent-soft);color:var(--accent);font:inherit;font-size:11.5px;cursor:pointer;font-weight:700;">문안 공유 저장</button>
       </span>
       <textarea id="txt" spellcheck="false"></textarea>
       <div class="hint" id="draftNote" hidden></div>
       <div class="hint">제품명, 원재료명, 광고 문구를 그대로 붙여넣으세요. 일부만 넣어도 됩니다.</div>
-      <span class="lbl">🏛️ 식품안전나라 조회 (품목보고번호·제품명·바코드 → 공식 제조정보 · 무료)</span>
+      <span class="lbl">식품안전나라 조회 (보고번호·제품명·바코드 → 공식 제조정보 · 무료)</span>
       <div style="display:flex;gap:6px;">
         <select id="fskKind" style="padding:6px;border:1px solid var(--line);border-radius:7px;font:inherit;font-size:12.5px;background:var(--paper);color:var(--ink);">
           <option value="report">보고번호</option>
@@ -120,15 +127,15 @@ details.hist ul{padding-left:4px;}
       <input type="file" id="fileIn" multiple accept="image/*,.pdf,application/pdf,.ai">
       <div class="thumbs" id="thumbs"></div>
       <div class="hint" id="pdfInfo" hidden></div>
-      <button id="ocrBtn" type="button" hidden style="margin-top:8px;padding:8px 14px;border:1px solid var(--accent);border-radius:8px;background:var(--accent-soft);color:var(--accent);font:inherit;font-size:12.5px;cursor:pointer;font-weight:700;">📖 사진 속 문구 읽어오기 (OCR)</button>
+      <button id="ocrBtn" type="button" hidden style="margin-top:8px;padding:8px 14px;border:1px solid var(--accent);border-radius:8px;background:var(--accent-soft);color:var(--accent);font:inherit;font-size:12.5px;cursor:pointer;font-weight:700;">사진 속 문구 읽어오기 (OCR)</button>
       <label class="chk"><input type="checkbox" id="compose"> 표기 문안 생성 (품목제조보고서·영양성적서로 표시사항 초안 + 엑셀 파일 생성)</label>
       <label class="chk"><input type="checkbox" id="suggest" checked> 수정 문안 추천 (위반 문구를 규정에 맞게 고친 대체 문안 제시)</label>
       <label class="chk"><input type="checkbox" id="precise"> 정밀 검수 (더 꼼꼼하지만 비용 약 2~5배)</label>
       <button class="go" id="go" type="button">검수하기</button>
-      <button class="go" id="goXls" type="button" style="margin-top:8px;background:var(--card);color:var(--accent);border:2px solid var(--accent);">📊 표기사항 엑셀 만들기</button>
+      <button class="go" id="goXls" type="button" style="margin-top:8px;background:var(--card);color:var(--accent);border:2px solid var(--accent);">표기사항 엑셀 만들기</button>
       <div class="hint">엑셀 만들기: 품목제조보고서·영양성적서를 첨부(또는 붙여넣기)하면 컬러박스용 한글표기사항 엑셀 파일을 만들어 내려줍니다.</div>
       <div id="errBox" hidden class="err"></div>
-      <details class="hist" id="nutri"><summary>🧮 영양성분표 계산기 (규정 반올림·기준치% 자동 · 무료)</summary>
+      <details class="hist" id="nutri"><summary>영양성분표 계산기 (규정 반올림·기준치% 자동 · 무료)</summary>
         <div class="hint" style="margin-top:8px;">검사성적서의 <b>100g(ml)당</b> 값을 넣으면, 표시기준 반올림 규칙과 1일 기준치 비율(%)을 적용한 표시값을 계산합니다.</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px;font-size:12.5px;">
           <label>1회 제공량(g/ml) <input id="nSrv" type="number" step="any" style="width:100%;box-sizing:border-box;padding:5px;border:1px solid var(--line);border-radius:6px;"></label>
@@ -145,14 +152,14 @@ details.hist ul{padding-left:4px;}
         <button id="nCalc" type="button" style="margin-top:8px;padding:7px 14px;border:1px solid var(--accent);border-radius:7px;background:var(--accent);color:var(--accent-ink);font:inherit;font-size:12.5px;cursor:pointer;font-weight:700;">표시값 계산</button>
         <div id="nOut" style="margin-top:8px;"></div>
       </details>
-      <details class="hist" id="inq"><summary>💬 문의하기 (관리자 카톡으로 바로 전달)</summary>
+      <details class="hist" id="inq"><summary>문의하기 (관리자 카카오톡으로 바로 전달)</summary>
         <textarea id="inqMsg" style="min-height:70px;margin-top:8px;" placeholder="질문이나 요청을 남기면 관리자 카카오톡으로 즉시 알림이 갑니다."></textarea>
         <button id="inqSend" type="button" style="margin-top:6px;padding:7px 14px;border:1px solid var(--accent);border-radius:7px;background:var(--accent);color:var(--accent-ink);font:inherit;font-size:12.5px;cursor:pointer;font-weight:700;">보내기</button>
         <span id="inqNote" class="hint" style="margin-left:8px;"></span>
       </details>
-      <details class="hist" id="drafts"><summary>📂 공유 작업 문안 (함께 보고 수정)</summary><ul id="draftList"></ul></details>
+      <details class="hist" id="drafts"><summary>공유 작업 문안 (함께 보고 수정)</summary><ul id="draftList"></ul></details>
       <details class="hist" id="hist"><summary>최근 검수 이력 (팀 공유 · 최근 30건)</summary>
-        <input id="histSearch" type="search" placeholder="🔍 이력 검색 (제품명·유형·날짜)" style="width:100%;box-sizing:border-box;margin:8px 0 4px;padding:7px 10px;border:1px solid var(--line);border-radius:7px;font:inherit;font-size:12.5px;background:var(--paper);color:var(--ink);">
+        <input id="histSearch" type="search" placeholder="이력 검색 (제품명·유형·날짜)" style="width:100%;box-sizing:border-box;margin:8px 0 4px;padding:7px 10px;border:1px solid var(--line);border-radius:7px;font:inherit;font-size:12.5px;background:var(--paper);color:var(--ink);">
         <ul id="histList"></ul>
       </details>
     </section>
@@ -299,7 +306,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs
   function applyResult(raw){
     lastExcel=parseExcel(raw);
     lastResult=lastExcel?stripExcel(raw):raw;
-    out.innerHTML=render(lastResult)+(lastExcel?'<p class="placeholder">📥 표기사항 엑셀 파일이 준비됐습니다 — 아래 버튼으로 내려받으세요.</p>':'');
+    out.innerHTML=render(lastResult)+(lastExcel?'<p class="placeholder">표기사항 엑셀 파일이 준비됐습니다 — 아래 버튼으로 내려받으세요.</p>':'');
     document.getElementById('actrow').hidden=false;
     document.getElementById('xlsBtn').hidden=!lastExcel;
   }
@@ -320,7 +327,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs
     applyResult(rec.r||'');
     if(!rec.r)document.getElementById('actrow').hidden=true;
     var dn=document.getElementById('draftNote');
-    dn.hidden=false;dn.textContent='📋 이력을 불러왔습니다 — 왼쪽 문안을 자유롭게 수정한 뒤 [검수하기]로 다시 검수하거나(새 이력으로 기록), 💾 버튼으로 공유 작업 문안에 저장하면 상대방도 이어서 수정할 수 있습니다.';
+    dn.hidden=false;dn.textContent='이력을 불러왔습니다 — 왼쪽 문안을 자유롭게 수정한 뒤 [검수하기]로 다시 검수하거나(새 이력으로 기록), [문안 공유 저장]으로 저장하면 상대방도 이어서 수정할 수 있습니다.';
     try{localStorage.setItem('lc.txt',txt.value);}catch(e){}
     window.scrollTo({top:0,behavior:'smooth'});
   }
@@ -490,13 +497,16 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs
     var txt=lines.join('\n');
     var html='<div style="border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-top:4px;font-size:12.5px;background:var(--paper);">';
     html+=lines.map(function(l){return esc(l);}).join('<br>');
-    html+='<br><button type="button" class="fskUse" data-txt="'+encodeURIComponent(txt)+'" style="margin-top:6px;padding:4px 10px;border:1px solid var(--accent);border-radius:6px;background:var(--accent-soft);color:var(--accent);font:inherit;font-size:11.5px;cursor:pointer;font-weight:700;">📥 입력창에 넣기</button></div>';
+    html+='<br><button type="button" class="fskUse" data-txt="'+encodeURIComponent(txt)+'" style="margin-top:6px;padding:4px 10px;border:1px solid var(--accent);border-radius:6px;background:var(--accent-soft);color:var(--accent);font:inherit;font-size:11.5px;cursor:pointer;font-weight:700;">입력창에 넣기</button></div>';
     return html;
   }
+  var fskBusy=false;
   document.getElementById('fskGo').onclick=function(){
+    if(fskBusy)return;
     var q=document.getElementById('fskQ').value.trim();
     var out=document.getElementById('fskOut');
     if(!q){out.innerHTML='<p class="hint">조회할 값을 입력하세요.</p>';return;}
+    fskBusy=true;
     out.innerHTML='<p class="hint">식품안전나라 조회 중…</p>';
     fetch('/api/lookup',{method:'POST',headers:hdrs({'Content-Type':'application/json'}),
       body:JSON.stringify({kind:document.getElementById('fskKind').value,q:q})})
@@ -515,8 +525,10 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs
           };
         });
       })
-      .catch(function(){out.innerHTML='<p class="hint">조회 실패 - 잠시 후 다시 시도해주세요.</p>';});
+      .catch(function(){out.innerHTML='<p class="hint">조회 실패 - 잠시 후 다시 시도해주세요.</p>';})
+      .then(function(){fskBusy=false;});
   };
+  document.getElementById('fskQ').addEventListener('keydown',function(e){if(e.key==='Enter')document.getElementById('fskGo').click();});
 
   // === 문의하기 ===
   document.getElementById('inqSend').onclick=function(){
@@ -556,7 +568,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs
       .then(function(d){
         if(d.ok){
           var note=document.getElementById('draftNote');
-          note.hidden=false;note.textContent='💾 "'+name+'" 공유 저장됨 ('+d.u+') — 상대방도 아래 공유 작업 문안에서 열어 수정할 수 있습니다.';
+          note.hidden=false;note.textContent='"'+name+'" 공유 저장됨 ('+d.u+') — 상대방도 아래 공유 작업 문안에서 열어 수정할 수 있습니다.';
           setTimeout(renderDrafts,1500);
         }
       }).catch(function(){alert('저장 실패 - 인터넷 연결을 확인하세요.');});
@@ -566,7 +578,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs
     fetch('/api/drafts',{headers:hdrs()}).then(function(r){return r.json();}).then(function(d){
       ul.innerHTML='';
       var items=d.items||[];
-      if(!items.length){ul.innerHTML='<li style="color:var(--sub);cursor:default;">저장된 작업 문안이 없습니다 — 문안을 쓰고 💾 버튼으로 공유하세요.</li>';return;}
+      if(!items.length){ul.innerHTML='<li style="color:var(--sub);cursor:default;">저장된 작업 문안이 없습니다 — 문안을 쓰고 [문안 공유 저장] 버튼으로 공유하세요.</li>';return;}
       items.forEach(function(item){
         var li=document.createElement('li');
         li.textContent=item.n+' — '+(item.by||'?')+' · '+item.u;
@@ -585,7 +597,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs
             if(map[rec.p])setType(rec.p,map[rec.p]);
             try{localStorage.setItem('lc.txt',txt.value);}catch(e){}
             var note=document.getElementById('draftNote');
-            note.hidden=false;note.textContent='📂 "'+rec.n+'" 불러옴 — '+(rec.by||'?')+'님이 '+rec.u+'에 저장. 수정 후 💾 버튼으로 같은 이름 저장하면 갱신됩니다.';
+            note.hidden=false;note.textContent='"'+rec.n+'" 불러옴 — '+(rec.by||'?')+'님이 '+rec.u+'에 저장. 수정 후 [문안 공유 저장]으로 같은 이름 저장하면 갱신됩니다.';
             window.scrollTo({top:0,behavior:'smooth'});
           }).catch(function(){});
         };
@@ -673,9 +685,16 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs
       for(var p=1;p<=maxP;p++){
         var page=await doc.getPage(p);
         try{var tc=await page.getTextContent();texts.push(tc.items.map(function(it){return it.str;}).join(' '));}catch(e){}
-        var vp=page.getViewport({scale:2});
+        // 렌더 배율은 긴 변이 약 2200px가 되도록 자동 조절 - 칼선/벡터 아웃라인 PDF가 scale:2에서 멈추는 문제 방지
+        var base=page.getViewport({scale:1});
+        var scale=Math.min(2,Math.max(1,2200/Math.max(base.width,base.height)));
+        var vp=page.getViewport({scale:scale});
         var cv=document.createElement('canvas');cv.width=vp.width;cv.height=vp.height;
-        await page.render({canvasContext:cv.getContext('2d'),viewport:vp}).promise;
+        // 렌더가 25초를 넘기면(중대형 벡터 파일) 포기하고 다음 페이지로
+        var task=page.render({canvasContext:cv.getContext('2d'),viewport:vp});
+        var timedOut=false;
+        await Promise.race([task.promise,new Promise(function(res){setTimeout(function(){timedOut=true;res();},25000);})]);
+        if(timedOut){try{task.cancel();}catch(e){}pdfInfo.hidden=false;pdfInfo.textContent='PDF '+f.name+' p'+p+' — 이미지가 복잡해 변환을 건너뜁니다. 사진으로 찍어 첨부하거나 텍스트를 붙여넣어 주세요.';continue;}
         // 세로형 문서는 위·아래 2분할로 보내 실질 판독 해상도를 2배로 높인다 (10% 겹침)
         if(cv.height/cv.width>1.25){
           var hHalf=Math.round(cv.height*0.58);
@@ -741,7 +760,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs
     if(!images.length)return;
     btn.disabled=true;
     var orig=btn.textContent;
-    btn.textContent='📖 글자를 읽는 중… (10~30초)';
+    btn.textContent='글자를 읽는 중… (10~30초)';
     try{
       var r=null,errData=null;
       for(var attempt=1;attempt<=12;attempt++){
@@ -750,7 +769,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs
         if(!r.ok){
           try{errData=await r.json();}catch(e){}
           if(r.status===503&&errData&&errData.error==='region_retry'){
-            btn.textContent='📖 경유지 재시도 중… ('+attempt+'/12)';
+            btn.textContent='경유지 재시도 중… ('+attempt+'/12)';
             await new Promise(function(res){setTimeout(res,500+attempt*200);});
             continue;
           }
@@ -768,7 +787,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs
         try{localStorage.setItem('lc.txt',txt.value);}catch(e){}
         errBox.hidden=true;
         pdfInfo.hidden=false;
-        pdfInfo.textContent='📖 읽어온 문구를 입력창에 넣었습니다 — 틀린 글자를 고친 뒤 검수하기를 누르세요. (?)표시는 흐릿해서 불확실한 글자입니다.';
+        pdfInfo.textContent='읽어온 문구를 입력창에 넣었습니다 — 틀린 글자를 고친 뒤 검수하기를 누르세요. (?)표시는 흐릿해서 불확실한 글자입니다.';
       }else{
         errBox.textContent='이미지에서 글자를 찾지 못했습니다.';errBox.hidden=false;
       }
@@ -799,14 +818,23 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs
   function fskCross(text,list){
     var digits=text.replace(/[\s-]/g,'');
     var bar=(digits.match(/880\d{10}/)||[])[0]||'';
-    var repCands=(digits.match(/\d{9,15}/g)||[]).filter(function(d){return d!==bar;});
+    // 보고번호는 12~15자리 - 전화번호(10~11자리) 오인 방지
+    var repCands=(digits.match(/\d{12,15}/g)||[]).filter(function(d){return d!==bar;});
     var rep=repCands.length?repCands[0]:'';
     var norm=function(s){return String(s||'').replace(/[\s()\[\]{}·,.·]/g,'');};
     var add=function(cls,tag,html){var li=document.createElement('li');li.style.cssText='font-size:12.5px;margin:3px 0;';li.innerHTML='<span class="badge '+cls+'">'+tag+'</span>'+html;list.appendChild(li);};
-    var q=function(kind,val){return fetch('/api/lookup',{method:'POST',headers:hdrs({'Content-Type':'application/json'}),body:JSON.stringify({kind:kind,q:val})}).then(function(r){return r.json();});};
+    // 같은 값 재조회는 세션 내에서 재사용 - 서버·정부 API 호출 절감
+    window.__fskMemo=window.__fskMemo||{};
+    var q=function(kind,val){
+      var k=kind+':'+val;
+      if(window.__fskMemo[k])return window.__fskMemo[k];
+      var p=fetch('/api/lookup',{method:'POST',headers:hdrs({'Content-Type':'application/json'}),body:JSON.stringify({kind:kind,q:val})}).then(function(r){return r.json();});
+      window.__fskMemo[k]=p;
+      return p;
+    };
     if(rep){
       q('report',rep).then(function(d){
-        if(!d.main||!d.main.length){add('b-mid','공식DB','보고번호 '+rep+' — 식품안전나라에서 조회되지 않음. 번호를 확인하세요.');return;}
+        if(!d.main||!d.main.length){add('b-mid','공식DB','보고번호로 보이는 숫자 '+rep+' — 식품안전나라에서 조회되지 않음 (보고번호가 맞는지 확인)');return;}
         var r=d.main[0];var nm=r.PRDLST_NM||'';
         var match=nm&&norm(text).indexOf(norm(nm))>=0;
         add(match?'b-low':'b-mid','공식DB','보고번호 '+rep+' → "'+esc(nm)+'" ('+esc(r.PRDLST_DCNM||'')+', '+esc(r.BSSH_NM||'')+') — '+(match?'입력 문구의 제품명과 일치':'⚠ 등록 제품명이 입력 문구에 안 보임 - 라벨 제품명과 신고명이 다른지 확인'));
@@ -920,7 +948,8 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs
         return;
       }
       // 첫 줄 META(참조 조문) + 이어지는 SSE 스트림 파싱
-      var reader=r.body.getReader(),dec=new TextDecoder(),buf='',acc='',metaDone=false,stopReason=null,streamErr=false;
+      // 긴 응답에서 글자마다 전체 재렌더링하지 않도록 화면 갱신을 120ms 간격으로 묶는다
+      var reader=r.body.getReader(),dec=new TextDecoder(),buf='',acc='',metaDone=false,stopReason=null,streamErr=false,lastPaint=0;
       while(true){
         var chunk=await reader.read();
         if(chunk.done)break;
@@ -944,7 +973,9 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs
           try{
             var ev=JSON.parse(L.slice(5));
             if(ev.type==='content_block_delta'&&ev.delta&&ev.delta.type==='text_delta'){
-              acc+=ev.delta.text;out.innerHTML=render(acc);
+              acc+=ev.delta.text;
+              var now=Date.now();
+              if(now-lastPaint>120){out.innerHTML=render(acc);lastPaint=now;}
             }
             if(ev.type==='message_delta'&&ev.delta&&ev.delta.stop_reason){stopReason=ev.delta.stop_reason;}
             if(ev.type==='error'){streamErr=true;errBox.textContent='AI 오류: '+(ev.error&&ev.error.message||'');errBox.hidden=false;}
